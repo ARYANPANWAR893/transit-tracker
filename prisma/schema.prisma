@@ -1,0 +1,40 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ShipmentStatus {
+  REQUESTED
+  ACCEPTED
+  ARRIVED
+}
+
+model Shipment {
+  id               String         @id @default(cuid())
+  status           ShipmentStatus @default(REQUESTED)
+
+  productName      String
+  sku              String
+  asin             String
+  qty              Int
+  requestedDate    DateTime
+  neededByDate     DateTime
+
+  acceptanceDate   DateTime?
+  containerNumber  String?
+  estArrivalDate   DateTime?
+
+  finalArrivedDate DateTime?
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([status])
+}
