@@ -1,12 +1,12 @@
-import type { Shipment } from "@/lib/types";
+import type { OrderListItem } from "@/lib/types";
 
 const HEADERS = [
   "Container Number",
   "Est. Arrival Date",
   "Final Arrived Date",
   "Product Name",
-  "SKU",
-  "ASIN",
+  "MA SKU",
+  "KM SKU",
   "QTY",
   "Requested Date",
   "Needed By Date",
@@ -18,21 +18,21 @@ function formatDate(value: string | null): string {
   return value.slice(0, 10);
 }
 
-export function shipmentsToTsv(shipments: Shipment[]): string {
-  const rows = shipments
-    .filter((s) => s.status !== "ARRIVED")
-    .map((s) =>
+export function ordersToTsv(orders: OrderListItem[]): string {
+  const rows = orders
+    .filter((o) => o.status !== "ARRIVED")
+    .map((o) =>
       [
-        s.containerNumber ?? "",
-        formatDate(s.estArrivalDate),
-        formatDate(s.finalArrivedDate),
-        s.productName,
-        s.sku,
-        s.asin,
-        String(s.qty),
-        formatDate(s.requestedDate),
-        formatDate(s.neededByDate),
-        formatDate(s.acceptanceDate),
+        o.containerNumber ?? "",
+        formatDate(o.estArrivalDate),
+        formatDate(o.finalArrivedDate),
+        o.product.name,
+        o.product.maSku,
+        o.product.kmSku,
+        String(o.qty),
+        formatDate(o.requestedDate),
+        formatDate(o.neededByDate),
+        formatDate(o.acceptanceDate),
       ].join("\t")
     );
 

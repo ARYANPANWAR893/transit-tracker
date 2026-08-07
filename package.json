@@ -1,5 +1,5 @@
 {
-  "name": "transit",
+  "name": "oms",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,12 +12,16 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
+    "@tanstack/react-table": "^8.21.3",
+    "@vercel/blob": "^2.7.0",
+    "bcryptjs": "^3.0.3",
     "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

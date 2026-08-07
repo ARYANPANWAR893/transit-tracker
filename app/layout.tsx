@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Transit Tracker",
-  description: "Container transit and pipeline verification tracker",
+  title: "OMS",
+  description: "Order & inventory management system",
 };
 
 export default function RootLayout({
