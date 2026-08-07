@@ -30,6 +30,11 @@ export type Product = {
 
 export type PersonRef = { id: string; name: string };
 
+/** What the New Order product picker can produce: pick an existing product, or draft a new one inline. */
+export type ProductSelection =
+  | { kind: "existing"; product: Product }
+  | { kind: "new"; name: string; maSku: string; kmSku: string; familyId: string | null };
+
 export type OrderArrival = {
   id: string;
   orderId: string;

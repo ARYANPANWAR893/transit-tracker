@@ -4,7 +4,7 @@ import { useState } from "react";
 import Modal from "@/components/Modal";
 import ProductPicker from "@/components/ProductPicker";
 import { inputClass, labelClass, primaryButtonClass } from "@/lib/formStyles";
-import type { OrderListItem, Product } from "@/lib/types";
+import type { OrderListItem, ProductSelection } from "@/lib/types";
 
 export default function AddOrderModal({
   open,
@@ -15,14 +15,14 @@ export default function AddOrderModal({
   onClose: () => void;
   onCreated: (order: OrderListItem) => void;
 }) {
-  const [product, setProduct] = useState<Product | null>(null);
+  const [selection, setSelection] = useState<ProductSelection | null>(null);
   const [qty, setQty] = useState("");
   const [neededByDate, setNeededByDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   function reset() {
-    setProduct(null);
+    setSelection(null);
     setQty("");
     setNeededByDate("");
     setError(null);
@@ -30,8 +30,8 @@ export default function AddOrderModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!product) {
-      setError("Pick a product");
+    if (!selection) {
+      setError("Pick or create a product");
       return;
     }
     setSubmitting(true);
@@ -40,7 +40,20 @@ export default function AddOrderModal({
     const res = await fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ productId: product.id, qty: Number(qty), neededByDate }),
+      body: JSON.stringify({
+        qty: Number(qty),
+        neededByDate,
+        ...(selection.kind === "existing"
+          ? { productId: selection.product.id }
+          : {
+              product: {
+                name: selection.name,
+                maSku: selection.maSku,
+                kmSku: selection.kmSku,
+                familyId: selection.familyId,
+              },
+            }),
+      }),
     });
 
     setSubmitting(false);
@@ -60,7 +73,7 @@ export default function AddOrderModal({
   return (
     <Modal open={open} onClose={onClose} title="New Order">
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <ProductPicker value={product} onChange={setProduct} />
+        <ProductPicker value={selection} onChange={setSelection} />
 
         <div className="grid grid-cols-2 gap-3">
           <div>

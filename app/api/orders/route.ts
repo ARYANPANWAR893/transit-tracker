@@ -72,11 +72,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { productId, qty, neededByDate } = await request.json();
+  const { productId, product: newProduct, qty, neededByDate } = await request.json();
 
   if (
-    typeof productId !== "string" ||
-    !productId ||
     typeof qty !== "number" ||
     !Number.isFinite(qty) ||
     qty <= 0 ||
@@ -86,14 +84,45 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const product = await prisma.product.findUnique({ where: { id: productId } });
-  if (!product) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+  // Either reference an existing product, or create one inline from the New Order form.
+  let resolvedProductId: string;
+
+  if (typeof productId === "string" && productId) {
+    const product = await prisma.product.findUnique({ where: { id: productId } });
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+    resolvedProductId = product.id;
+  } else if (
+    newProduct &&
+    typeof newProduct.name === "string" &&
+    newProduct.name.trim() &&
+    typeof newProduct.maSku === "string" &&
+    newProduct.maSku.trim() &&
+    typeof newProduct.kmSku === "string" &&
+    newProduct.kmSku.trim()
+  ) {
+    try {
+      const created = await prisma.product.create({
+        data: {
+          name: newProduct.name.trim(),
+          maSku: newProduct.maSku.trim(),
+          kmSku: newProduct.kmSku.trim(),
+          familyId:
+            typeof newProduct.familyId === "string" && newProduct.familyId ? newProduct.familyId : null,
+        },
+      });
+      resolvedProductId = created.id;
+    } catch {
+      return NextResponse.json({ error: "MA SKU or KM SKU already in use" }, { status: 409 });
+    }
+  } else {
+    return NextResponse.json({ error: "A product (existing or new) is required" }, { status: 400 });
   }
 
   const order = await prisma.order.create({
     data: {
-      productId,
+      productId: resolvedProductId,
       qty,
       requestedDate: new Date(),
       neededByDate: new Date(neededByDate),
