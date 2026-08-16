@@ -1,26 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, hasRole } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
+import { canManageCatalog } from "@/lib/permissions";
+import { logActivity } from "@/lib/activityLog";
+
+const IDENTIFIER_FIELDS = ["amazonSku", "amazonAsin", "flipkartSku", "flipkartAsin", "maSku", "kmwId"] as const;
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!hasRole(user, ["ADMIN", "EDITOR"])) {
+  if (!canManageCatalog(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
+  const existing = await prisma.product.findUnique({ where: { id } });
+  if (!existing) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+
   const body = await request.json();
   const data: Record<string, unknown> = {};
 
-  for (const field of ["name", "maSku", "kmSku"] as const) {
+  if ("name" in body) {
+    if (typeof body.name !== "string" || !body.name.trim()) {
+      return NextResponse.json({ error: "Invalid name" }, { status: 400 });
+    }
+    data.name = body.name.trim();
+  }
+
+  for (const field of IDENTIFIER_FIELDS) {
     if (field in body) {
-      if (typeof body[field] !== "string" || !body[field].trim()) {
-        return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 });
-      }
-      data[field] = body[field].trim();
+      data[field] = typeof body[field] === "string" && body[field].trim() ? body[field].trim() : null;
     }
   }
 
@@ -28,12 +39,30 @@ export async function PATCH(
     data.familyId = typeof body.familyId === "string" && body.familyId ? body.familyId : null;
   }
 
+  // Guard against ending up with zero identifiers (name alone can't identify a product).
+  const resultingIdentifiers = IDENTIFIER_FIELDS.map((f) =>
+    f in data ? data[f] : existing[f as keyof typeof existing]
+  );
+  if (!resultingIdentifiers.some(Boolean)) {
+    return NextResponse.json({ error: "At least one product identifier is required" }, { status: 400 });
+  }
+
   try {
     const product = await prisma.product.update({ where: { id }, data, include: { family: true } });
+
+    await logActivity({
+      actor: user,
+      action: "PRODUCT_EDITED",
+      entityType: "Product",
+      entityId: id,
+      previousValue: Object.fromEntries(Object.keys(data).map((k) => [k, existing[k as keyof typeof existing]])),
+      newValue: data,
+    });
+
     return NextResponse.json(product);
   } catch {
     return NextResponse.json(
-      { error: "Product not found, or MA SKU / KM SKU already in use" },
+      { error: "Product not found, or an identifier is already in use" },
       { status: 409 }
     );
   }
@@ -44,7 +73,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!hasRole(user, ["ADMIN", "EDITOR"])) {
+  if (!canManageCatalog(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -59,6 +88,7 @@ export async function DELETE(
 
   try {
     await prisma.product.delete({ where: { id } });
+    await logActivity({ actor: user, action: "PRODUCT_DELETED", entityType: "Product", entityId: id });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Product not found" }, { status: 404 });

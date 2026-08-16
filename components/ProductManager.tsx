@@ -1,8 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import type { Product, ProductFamily } from "@/lib/types";
-import { inputClass, labelClass, primaryButtonClass } from "@/lib/formStyles";
+import type { Product, ProductDraft, ProductFamily } from "@/lib/types";
+import { inputClass, primaryButtonClass } from "@/lib/formStyles";
+import OrderIdentifierFields from "@/components/OrderIdentifierFields";
+
+const EMPTY_DRAFT: ProductDraft = {
+  name: "",
+  amazonSku: null,
+  amazonAsin: null,
+  flipkartSku: null,
+  flipkartAsin: null,
+  maSku: null,
+  kmwId: null,
+  familyId: null,
+};
+
+function identifierSummary(p: Product): string {
+  const bits = [
+    p.maSku && `MASKU ${p.maSku}`,
+    p.kmwId && `KMW ${p.kmwId}`,
+    p.amazonSku && `Amazon SKU ${p.amazonSku}`,
+    p.amazonAsin && `ASIN ${p.amazonAsin}`,
+    p.flipkartSku && `Flipkart SKU ${p.flipkartSku}`,
+    p.flipkartAsin && `Flipkart ASIN ${p.flipkartAsin}`,
+  ].filter(Boolean);
+  return bits.join(" · ") || "—";
+}
 
 export default function ProductManager({
   products,
@@ -20,18 +44,12 @@ export default function ProductManager({
   onChange: () => void;
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
-  const [maSku, setMaSku] = useState("");
-  const [kmSku, setKmSku] = useState("");
-  const [familyId, setFamilyId] = useState("");
+  const [draft, setDraft] = useState<ProductDraft>(EMPTY_DRAFT);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   function resetForm() {
-    setName("");
-    setMaSku("");
-    setKmSku("");
-    setFamilyId("");
+    setDraft(EMPTY_DRAFT);
     setError(null);
     setShowForm(false);
   }
@@ -44,7 +62,7 @@ export default function ProductManager({
     const res = await fetch("/api/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, maSku, kmSku, familyId: familyId || null }),
+      body: JSON.stringify(draft),
     });
 
     setSubmitting(false);
@@ -85,7 +103,7 @@ export default function ProductManager({
           <input
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search name / MA SKU / KM SKU"
+            placeholder="Search name / any identifier"
             className={`${inputClass} w-56`}
           />
           {canEdit && (
@@ -99,41 +117,11 @@ export default function ProductManager({
       {showForm && (
         <form
           onSubmit={handleCreate}
-          className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-black/10 p-3 sm:grid-cols-2 dark:border-white/10"
+          className="mb-4 rounded-xl border border-black/10 p-3 dark:border-white/10"
         >
-          <div className="sm:col-span-2">
-            <label className={labelClass}>Product name</label>
-            <input required value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
-          </div>
-          <div>
-            <label className={labelClass}>MA SKU</label>
-            <input required value={maSku} onChange={(e) => setMaSku(e.target.value)} className={inputClass} />
-          </div>
-          <div>
-            <label className={labelClass}>KM SKU</label>
-            <input required value={kmSku} onChange={(e) => setKmSku(e.target.value)} className={inputClass} />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass}>Family</label>
-            <select
-              value={familyId}
-              onChange={(e) => setFamilyId(e.target.value)}
-              className={inputClass}
-            >
-              <option value="">Unassigned</option>
-              {families.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          {error && <p className="text-sm text-red-600 sm:col-span-2 dark:text-red-400">{error}</p>}
-          <button
-            type="submit"
-            disabled={submitting}
-            className={`${primaryButtonClass} sm:col-span-2`}
-          >
+          <OrderIdentifierFields draft={draft} onChange={setDraft} families={families} hasImage={false} />
+          {error && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <button type="submit" disabled={submitting} className={`${primaryButtonClass} mt-3`}>
             {submitting ? "Adding…" : "Add product"}
           </button>
         </form>
@@ -144,8 +132,7 @@ export default function ProductManager({
           <thead className="text-xs uppercase text-black/40 dark:text-white/40">
             <tr>
               <th className="py-1.5 pr-3">Name</th>
-              <th className="py-1.5 pr-3">MA SKU</th>
-              <th className="py-1.5 pr-3">KM SKU</th>
+              <th className="py-1.5 pr-3">Identifiers</th>
               <th className="py-1.5 pr-3">Family</th>
               {canEdit && <th className="py-1.5"></th>}
             </tr>
@@ -154,8 +141,7 @@ export default function ProductManager({
             {products.map((product) => (
               <tr key={product.id} className="border-t border-black/5 dark:border-white/10">
                 <td className="py-1.5 pr-3">{product.name}</td>
-                <td className="py-1.5 pr-3">{product.maSku}</td>
-                <td className="py-1.5 pr-3">{product.kmSku}</td>
+                <td className="py-1.5 pr-3 text-black/60 dark:text-white/60">{identifierSummary(product)}</td>
                 <td className="py-1.5 pr-3">
                   {canEdit ? (
                     <select
@@ -188,7 +174,7 @@ export default function ProductManager({
             ))}
             {products.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-4 text-center text-black/40 dark:text-white/40">
+                <td colSpan={4} className="py-4 text-center text-black/40 dark:text-white/40">
                   No products found.
                 </td>
               </tr>

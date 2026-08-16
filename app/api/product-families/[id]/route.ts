@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, hasRole } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
+import { canManageCatalog } from "@/lib/permissions";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!hasRole(user, ["ADMIN", "EDITOR"])) {
+  if (!canManageCatalog(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -33,7 +34,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUser();
-  if (!hasRole(user, ["ADMIN", "EDITOR"])) {
+  if (!canManageCatalog(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

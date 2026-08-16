@@ -12,15 +12,42 @@ datasource db {
 
 enum Role {
   ADMIN
-  EDITOR
-  VIEWER
+  ORDERER
+  ORDER_ACCEPTER
 }
 
 enum OrderStatus {
+  DRAFT
   REQUESTED
   ACCEPTED
-  PARTIALLY_ARRIVED
+  REJECTED
+  WITHDRAWN
+  IN_TRANSIT
   ARRIVED
+  CONFIRMED_RECEIVED
+}
+
+enum ConversionKind {
+  REQUEST
+  ACCEPTANCE
+}
+
+enum ContainerUploadStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ContainerItemMatchStatus {
+  MATCHED
+  AMBIGUOUS
+  UNMATCHED
+  ERROR
+}
+
+enum PhotoSource {
+  ORDERER_UPLOAD
+  CONTAINER_IMPORT
 }
 
 model User {
@@ -28,15 +55,24 @@ model User {
   email        String    @unique
   name         String
   passwordHash String
-  role         Role      @default(VIEWER)
+  role         Role      @default(ORDERER)
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
 
-  sessions        Session[]
-  ordersCreated   Order[]        @relation("OrderCreatedBy")
-  arrivalsLogged  OrderArrival[]
-  remarks         Remark[]
-  photosUploaded  Photo[]
+  sessions Session[]
+
+  ordersCreated    Order[] @relation("OrderCreatedBy")
+  ordersAccepted   Order[] @relation("OrderAcceptedBy")
+  ordersRejected   Order[] @relation("OrderRejectedBy")
+  ordersWithdrawn  Order[] @relation("OrderWithdrawnBy")
+  ordersArrived    Order[] @relation("OrderArrivedBy")
+  ordersConfirmed  Order[] @relation("OrderConfirmedBy")
+
+  remarks           Remark[]
+  photosUploaded    Photo[]
+  containerUploads  ContainerUpload[]
+  containerItemReviews ContainerItem[]
+  activityLogs      ActivityLog[]
 }
 
 model Session {
@@ -59,11 +95,18 @@ model ProductFamily {
   updatedAt DateTime @updatedAt
 }
 
+// Product identification is deliberately loose: an order only needs to
+// provide ONE of these identifiers (enforced in the API route, not here),
+// since the Orderer may only know e.g. the Amazon ASIN.
 model Product {
   id       String         @id @default(cuid())
   name     String
-  maSku    String         @unique
-  kmSku    String         @unique
+  amazonSku    String?
+  amazonAsin   String?
+  flipkartSku  String?
+  flipkartAsin String?
+  maSku    String?        @unique
+  kmwId    String?        @unique
   familyId String?
   family   ProductFamily? @relation(fields: [familyId], references: [id])
   orders   Order[]
@@ -75,60 +118,74 @@ model Product {
 }
 
 model Order {
-  id              String      @id @default(cuid())
-  status          OrderStatus @default(REQUESTED)
+  id     String      @id @default(cuid())
+  status OrderStatus @default(REQUESTED)
 
-  productId       String
-  product         Product     @relation(fields: [productId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
 
-  qty             Int
-  requestedDate   DateTime
-  neededByDate    DateTime
+  // --- Request (Orderer) ---
+  qty              Int
+  requestedPriceInr Decimal  @db.Decimal(14, 2)
+  requestedPriceCny Decimal? @db.Decimal(14, 2) // cached; CurrencyConversion has the audit trail
+  requestedDate    DateTime
+  neededByDate     DateTime
 
-  acceptanceDate  DateTime?
-  containerNumber String?
-  estArrivalDate  DateTime?
+  createdById String
+  createdBy   User   @relation("OrderCreatedBy", fields: [createdById], references: [id])
 
-  createdById     String
-  createdBy       User        @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  // --- Acceptance (Order Accepter) ---
+  acceptedQty                 Int?
+  acceptedPriceCny             Decimal?  @db.Decimal(14, 2)
+  acceptedPriceInr             Decimal?  @db.Decimal(14, 2) // cached
+  acceptedExpectedArrivalDate  DateTime?
+  acceptanceDate               DateTime?
+  acceptedById                 String?
+  acceptedBy                   User?     @relation("OrderAcceptedBy", fields: [acceptedById], references: [id])
 
-  arrivals        OrderArrival[]
+  // --- Rejection ---
+  rejectionReason String?
+  rejectedAt      DateTime?
+  rejectedById    String?
+  rejectedBy      User?     @relation("OrderRejectedBy", fields: [rejectedById], references: [id])
+
+  // --- Withdrawal ---
+  withdrawnAt   DateTime?
+  withdrawnById String?
+  withdrawnBy   User?     @relation("OrderWithdrawnBy", fields: [withdrawnById], references: [id])
+
+  // --- Physical arrival (Order Accepter / Admin) ---
+  arrivedAt   DateTime?
+  arrivedById String?
+  arrivedBy   User?     @relation("OrderArrivedBy", fields: [arrivedById], references: [id])
+
+  // --- Confirmed receipt (Orderer) ---
+  confirmedReceivedAt DateTime?
+  confirmedById       String?
+  confirmedBy         User?     @relation("OrderConfirmedBy", fields: [confirmedById], references: [id])
+
   remarks         Remark[]
   photos          Photo[]
+  conversions     CurrencyConversion[]
+  containerItems  ContainerItem[]
 
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([productId])
-}
-
-model OrderArrival {
-  id              String   @id @default(cuid())
-  orderId         String
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-
-  qty             Int
-  arrivedDate     DateTime
-  containerNumber String?
-
-  recordedById    String
-  recordedBy      User     @relation(fields: [recordedById], references: [id])
-
-  createdAt       DateTime @default(now())
-
-  @@index([orderId])
+  @@index([createdById])
 }
 
 model Remark {
-  id        String   @id @default(cuid())
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
 
-  body      String
+  body String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -137,17 +194,125 @@ model Remark {
 }
 
 model Photo {
-  id           String   @id @default(cuid())
-  orderId      String
-  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   url          String
   blobPathname String
+  source       PhotoSource @default(ORDERER_UPLOAD)
 
   uploadedById String
-  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
 
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([orderId])
+}
+
+// One row per conversion event — the audit trail the business needs since
+// FX rates move. Order.requestedPriceCny / acceptedPriceInr are cached
+// copies of the `convertedAmount` here for fast list display.
+model CurrencyConversion {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  kind ConversionKind
+
+  originalAmount    Decimal @db.Decimal(14, 2)
+  originalCurrency  String
+  convertedAmount   Decimal @db.Decimal(14, 2)
+  convertedCurrency String
+  rate              Decimal @db.Decimal(18, 8)
+  rateTimestamp     DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+model ContainerUpload {
+  id            String                @id @default(cuid())
+  containerName String
+  fileName      String
+  blobUrl       String
+  status        ContainerUploadStatus @default(PROCESSING)
+
+  totalRows      Int @default(0)
+  matchedCount   Int @default(0)
+  ambiguousCount Int @default(0)
+  unmatchedCount Int @default(0)
+  errorCount     Int @default(0)
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  errorMessage String?
+
+  items ContainerItem[]
+
+  createdAt DateTime @default(now())
+
+  @@index([uploadedById])
+}
+
+model ContainerItem {
+  id                String          @id @default(cuid())
+  containerUploadId String
+  containerUpload   ContainerUpload @relation(fields: [containerUploadId], references: [id], onDelete: Cascade)
+
+  rowNumber    Int
+  shippingMark String?
+  itemNo       String?
+  description  String?
+  sectionLabel String?
+
+  cartons     Int?
+  qtyPerCarton Int?
+  totalQty    Int?
+  cbm         Decimal? @db.Decimal(12, 4)
+  totalCbm    Decimal? @db.Decimal(12, 4)
+  weight      Decimal? @db.Decimal(12, 4)
+  totalWeight Decimal? @db.Decimal(12, 4)
+
+  imageUrl String?
+
+  matchStatus ContainerItemMatchStatus
+  matchNote   String?
+
+  matchedOrderId String?
+  matchedOrder   Order?  @relation(fields: [matchedOrderId], references: [id])
+
+  reviewedById String?
+  reviewedBy   User?     @relation(fields: [reviewedById], references: [id])
+  reviewedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([containerUploadId])
+  @@index([matchedOrderId])
+  @@index([matchStatus])
+}
+
+model ActivityLog {
+  id String @id @default(cuid())
+
+  actorId   String?
+  actor     User?   @relation(fields: [actorId], references: [id])
+  actorRole Role?
+
+  action     String
+  entityType String
+  entityId   String?
+
+  previousValue Json?
+  newValue      Json?
+  remarks       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
 }

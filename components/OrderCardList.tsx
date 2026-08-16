@@ -12,6 +12,12 @@ function formatDate(value: string | null): string {
   });
 }
 
+function money(amount: number | null, currency: string): string {
+  if (amount === null) return "—";
+  const symbol = currency === "INR" ? "₹" : currency === "CNY" ? "¥" : `${currency} `;
+  return `${symbol}${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
 export default function OrderCardList({
   orders,
   onRowClick,
@@ -39,7 +45,7 @@ export default function OrderCardList({
             <div>
               <h3 className="font-semibold leading-tight">{order.product.name}</h3>
               <p className="text-xs text-black/50 dark:text-white/50">
-                MA {order.product.maSku} · KM {order.product.kmSku}
+                {order.createdBy.name} · {money(order.requestedPriceInr, "INR")}
               </p>
             </div>
             <StatusPill status={order.status} />
@@ -47,19 +53,15 @@ export default function OrderCardList({
 
           <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
             <span className="text-black/50 dark:text-white/50">
-              QTY: {order.qtyReceived > 0 ? `${order.qtyReceived}/${order.qty}` : order.qty}
+              QTY: {order.acceptedQty !== null ? `${order.acceptedQty}/${order.qty}` : order.qty}
             </span>
-            <span className="text-black/50 dark:text-white/50">
-              Needed: {formatDate(order.neededByDate)}
-            </span>
-            {order.containerNumber && (
-              <span className="text-black/50 dark:text-white/50">
-                Container: {order.containerNumber}
-              </span>
+            <span className="text-black/50 dark:text-white/50">Needed: {formatDate(order.neededByDate)}</span>
+            {order.containerName && (
+              <span className="text-black/50 dark:text-white/50">Container: {order.containerName}</span>
             )}
-            {order.finalArrivedDate && (
+            {order.acceptedExpectedArrivalDate && (
               <span className="text-black/50 dark:text-white/50">
-                Arrived: {formatDate(order.finalArrivedDate)}
+                Expected: {formatDate(order.acceptedExpectedArrivalDate)}
               </span>
             )}
           </div>

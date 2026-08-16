@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/session";
+import { logActivity } from "@/lib/activityLog";
 
 export async function PATCH(
   request: NextRequest,
@@ -27,6 +28,15 @@ export async function PATCH(
     where: { id: remarkId },
     data: { body: body.trim() },
     include: { author: { select: { id: true, name: true } } },
+  });
+
+  await logActivity({
+    actor: user,
+    action: "REMARK_EDITED",
+    entityType: "Order",
+    entityId: remark.orderId,
+    previousValue: { body: existing.body },
+    newValue: { body: remark.body },
   });
 
   return NextResponse.json({
@@ -57,5 +67,14 @@ export async function DELETE(
   }
 
   await prisma.remark.delete({ where: { id: remarkId } });
+
+  await logActivity({
+    actor: user,
+    action: "REMARK_DELETED",
+    entityType: "Order",
+    entityId: existing.orderId,
+    previousValue: { body: existing.body },
+  });
+
   return NextResponse.json({ ok: true });
 }

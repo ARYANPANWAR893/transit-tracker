@@ -2,12 +2,9 @@
 
 import { useState } from "react";
 import Modal from "@/components/Modal";
+import CurrencyPreview from "@/components/CurrencyPreview";
 import { inputClass, labelClass, primaryButtonClass } from "@/lib/formStyles";
 import type { OrderDetail, OrderListItem } from "@/lib/types";
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default function AcceptModal({
   order,
@@ -18,14 +15,18 @@ export default function AcceptModal({
   onClose: () => void;
   onAccepted: (order: OrderDetail) => void;
 }) {
-  const [containerNumber, setContainerNumber] = useState("");
-  const [estArrivalDate, setEstArrivalDate] = useState(today());
+  const [acceptedQty, setAcceptedQty] = useState("");
+  const [acceptedPriceCny, setAcceptedPriceCny] = useState("");
+  const [expectedArrivalDate, setExpectedArrivalDate] = useState("");
+  const [remarks, setRemarks] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   function handleClose() {
-    setContainerNumber("");
-    setEstArrivalDate(today());
+    setAcceptedQty("");
+    setAcceptedPriceCny("");
+    setExpectedArrivalDate("");
+    setRemarks("");
     setError(null);
     onClose();
   }
@@ -39,7 +40,12 @@ export default function AcceptModal({
     const res = await fetch(`/api/orders/${order.id}/accept`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ containerNumber, estArrivalDate }),
+      body: JSON.stringify({
+        acceptedQty: Number(acceptedQty),
+        acceptedPriceCny: Number(acceptedPriceCny),
+        acceptedExpectedArrivalDate: expectedArrivalDate,
+        remarks: remarks.trim() || undefined,
+      }),
     });
 
     setSubmitting(false);
@@ -60,34 +66,66 @@ export default function AcceptModal({
       {order && (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <p className="text-sm text-black/60 dark:text-white/60">
-            {order.product.name} · MA {order.product.maSku}
+            {order.product.name} · requested {order.qty} at ₹{order.requestedPriceInr.toLocaleString()}
           </p>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass} htmlFor="acceptedQty">
+                Quantity accepted
+              </label>
+              <input
+                id="acceptedQty"
+                type="number"
+                min={1}
+                required
+                autoFocus
+                value={acceptedQty}
+                onChange={(e) => setAcceptedQty(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="acceptedPriceCny">
+                Accepted price (CNY)
+              </label>
+              <input
+                id="acceptedPriceCny"
+                type="number"
+                min={0.01}
+                step="0.01"
+                required
+                value={acceptedPriceCny}
+                onChange={(e) => setAcceptedPriceCny(e.target.value)}
+                className={inputClass}
+              />
+              <CurrencyPreview amount={Number(acceptedPriceCny)} from="CNY" to="INR" />
+            </div>
+          </div>
+
           <div>
-            <label className={labelClass} htmlFor="containerNumber">
-              Container number
+            <label className={labelClass} htmlFor="expectedArrivalDate">
+              Expected arrival date
             </label>
             <input
-              id="containerNumber"
+              id="expectedArrivalDate"
+              type="date"
               required
-              autoFocus
-              value={containerNumber}
-              onChange={(e) => setContainerNumber(e.target.value)}
+              value={expectedArrivalDate}
+              onChange={(e) => setExpectedArrivalDate(e.target.value)}
               className={inputClass}
             />
           </div>
 
           <div>
-            <label className={labelClass} htmlFor="estArrivalDate">
-              Est. arrival date
+            <label className={labelClass} htmlFor="acceptRemarks">
+              Remarks (optional)
             </label>
-            <input
-              id="estArrivalDate"
-              type="date"
-              required
-              value={estArrivalDate}
-              onChange={(e) => setEstArrivalDate(e.target.value)}
-              className={inputClass}
+            <textarea
+              id="acceptRemarks"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              className={`${inputClass} min-h-16`}
             />
           </div>
 

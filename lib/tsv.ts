@@ -1,38 +1,43 @@
 import type { OrderListItem } from "@/lib/types";
 
 const HEADERS = [
-  "Container Number",
-  "Est. Arrival Date",
-  "Final Arrived Date",
+  "Status",
   "Product Name",
-  "MA SKU",
-  "KM SKU",
-  "QTY",
-  "Requested Date",
+  "MASKU",
+  "KMW ID",
+  "QTY Requested",
+  "Requested Price (INR)",
+  "Requested Price (CNY)",
   "Needed By Date",
-  "Acceptance Date",
+  "Container",
+  "Expected Arrival",
+  "Requested Date",
 ];
+
+const TERMINAL_STATUSES = new Set(["CONFIRMED_RECEIVED", "REJECTED", "WITHDRAWN"]);
 
 function formatDate(value: string | null): string {
   if (!value) return "";
   return value.slice(0, 10);
 }
 
+/** Everything still active — i.e. not yet completed, rejected, or withdrawn. */
 export function ordersToTsv(orders: OrderListItem[]): string {
   const rows = orders
-    .filter((o) => o.status !== "ARRIVED")
+    .filter((o) => !TERMINAL_STATUSES.has(o.status))
     .map((o) =>
       [
-        o.containerNumber ?? "",
-        formatDate(o.estArrivalDate),
-        formatDate(o.finalArrivedDate),
+        o.status,
         o.product.name,
-        o.product.maSku,
-        o.product.kmSku,
+        o.product.maSku ?? "",
+        o.product.kmwId ?? "",
         String(o.qty),
-        formatDate(o.requestedDate),
+        o.requestedPriceInr.toFixed(2),
+        o.requestedPriceCny?.toFixed(2) ?? "",
         formatDate(o.neededByDate),
-        formatDate(o.acceptanceDate),
+        o.containerName ?? "",
+        formatDate(o.acceptedExpectedArrivalDate),
+        formatDate(o.requestedDate),
       ].join("\t")
     );
 

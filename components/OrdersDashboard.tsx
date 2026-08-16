@@ -1,21 +1,49 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import type { OrderListItem, OrderListResponse, OrderStatus, ProductFamily, PublicUser } from "@/lib/types";
 import OrderTable from "@/components/OrderTable";
 import OrderCardList from "@/components/OrderCardList";
 import OrderDetailDrawer from "@/components/OrderDetailDrawer";
-import AddOrderModal from "@/components/AddOrderModal";
 import CopyExcelButton from "@/components/CopyExcelButton";
+import AdminStatTiles from "@/components/AdminStatTiles";
+import { canCreateOrder } from "@/lib/permissions";
 import { inputClass, primaryButtonClass, secondaryButtonClass } from "@/lib/formStyles";
 
-const STATUS_OPTIONS: { value: OrderStatus | ""; label: string }[] = [
+const ALL_STATUS_OPTIONS: { value: OrderStatus | ""; label: string }[] = [
   { value: "", label: "All statuses" },
   { value: "REQUESTED", label: "Requested" },
   { value: "ACCEPTED", label: "Accepted" },
-  { value: "PARTIALLY_ARRIVED", label: "Partially Arrived" },
-  { value: "ARRIVED", label: "Arrived" },
+  { value: "REJECTED", label: "Rejected" },
+  { value: "WITHDRAWN", label: "Withdrawn" },
+  { value: "IN_TRANSIT", label: "In Transit" },
+  { value: "ARRIVED", label: "Arrived (awaiting confirmation)" },
+  { value: "CONFIRMED_RECEIVED", label: "Completed" },
 ];
+
+function quickFiltersFor(role: PublicUser["role"]): { label: string; status: OrderStatus | "" }[] {
+  if (role === "ORDER_ACCEPTER") {
+    return [
+      { label: "All", status: "" },
+      { label: "New Requests", status: "REQUESTED" },
+      { label: "Accepted", status: "ACCEPTED" },
+      { label: "In Transit", status: "IN_TRANSIT" },
+      { label: "Awaiting Confirmation", status: "ARRIVED" },
+    ];
+  }
+  // ORDERER and ADMIN get the fuller set
+  return [
+    { label: "All", status: "" },
+    { label: "Requested", status: "REQUESTED" },
+    { label: "Accepted", status: "ACCEPTED" },
+    { label: "In Transit", status: "IN_TRANSIT" },
+    { label: "Awaiting Confirmation", status: "ARRIVED" },
+    { label: "Completed", status: "CONFIRMED_RECEIVED" },
+    { label: "Rejected", status: "REJECTED" },
+    { label: "Withdrawn", status: "WITHDRAWN" },
+  ];
+}
 
 export default function OrdersDashboard({ currentUser }: { currentUser: PublicUser }) {
   const [orders, setOrders] = useState<OrderListItem[]>([]);
@@ -31,10 +59,10 @@ export default function OrdersDashboard({ currentUser }: { currentUser: PublicUs
 
   const [families, setFamilies] = useState<ProductFamily[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addOpen, setAddOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  const canEdit = currentUser.role === "ADMIN" || currentUser.role === "EDITOR";
+  const canAdd = canCreateOrder(currentUser);
+  const quickFilters = quickFiltersFor(currentUser.role);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -61,6 +89,12 @@ export default function OrdersDashboard({ currentUser }: { currentUser: PublicUs
     fetch("/api/product-families")
       .then((res) => (res.ok ? res.json() : []))
       .then(setFamilies);
+
+    const fromUrl = new URLSearchParams(window.location.search).get("status");
+    if (fromUrl) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- applying a status filter from the URL once, on mount
+      setStatus(fromUrl as OrderStatus);
+    }
   }, []);
 
   useEffect(() => {
@@ -83,6 +117,27 @@ export default function OrdersDashboard({ currentUser }: { currentUser: PublicUs
 
   return (
     <div className="flex flex-col gap-4">
+      {currentUser.role === "ADMIN" && <AdminStatTiles />}
+
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {quickFilters.map((f) => (
+          <button
+            key={f.label}
+            onClick={() => {
+              setStatus(f.status);
+              setPage(1);
+            }}
+            className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+              status === f.status
+                ? "bg-black text-white dark:bg-white dark:text-black"
+                : "bg-black/5 text-black/70 hover:bg-black/10 dark:bg-white/10 dark:text-white/70 dark:hover:bg-white/15"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={search}
@@ -90,7 +145,7 @@ export default function OrdersDashboard({ currentUser }: { currentUser: PublicUs
             setSearch(e.target.value);
             setPage(1);
           }}
-          placeholder="Search product, SKU, container…"
+          placeholder="Search product, SKU/ASIN, requester…"
           className={`${inputClass} w-64`}
         />
         <select
@@ -101,7 +156,7 @@ export default function OrdersDashboard({ currentUser }: { currentUser: PublicUs
           }}
           className={inputClass + " w-auto"}
         >
-          {STATUS_OPTIONS.map((opt) => (
+          {ALL_STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
@@ -125,10 +180,10 @@ export default function OrdersDashboard({ currentUser }: { currentUser: PublicUs
 
         <div className="ml-auto flex gap-2">
           <CopyExcelButton />
-          {canEdit && (
-            <button onClick={() => setAddOpen(true)} className={primaryButtonClass}>
+          {canAdd && (
+            <Link href="/orders/new" className={primaryButtonClass}>
               + New Order
-            </button>
+            </Link>
           )}
         </div>
       </div>
@@ -170,21 +225,15 @@ export default function OrdersDashboard({ currentUser }: { currentUser: PublicUs
         </>
       )}
 
-      {canEdit && (
-        <button
-          onClick={() => setAddOpen(true)}
+      {canAdd && (
+        <Link
+          href="/orders/new"
           aria-label="New order"
           className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-black text-2xl text-white shadow-lg md:hidden dark:bg-white dark:text-black"
         >
           +
-        </button>
+        </Link>
       )}
-
-      <AddOrderModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onCreated={() => refresh()}
-      />
 
       <OrderDetailDrawer
         orderId={selectedOrderId}

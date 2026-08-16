@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { PublicUser, Role } from "@/lib/types";
 import { inputClass, labelClass, primaryButtonClass } from "@/lib/formStyles";
 
-const ROLES: Role[] = ["ADMIN", "EDITOR", "VIEWER"];
+const ROLES: Role[] = ["ADMIN", "ORDERER", "ORDER_ACCEPTER"];
 
 export default function UserManager({ currentUserId }: { currentUserId: string }) {
   const [users, setUsers] = useState<PublicUser[]>([]);
@@ -13,7 +13,7 @@ export default function UserManager({ currentUserId }: { currentUserId: string }
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("VIEWER");
+  const [role, setRole] = useState<Role>("ORDERER");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,7 +49,7 @@ export default function UserManager({ currentUserId }: { currentUserId: string }
     setName("");
     setEmail("");
     setPassword("");
-    setRole("VIEWER");
+    setRole("ORDERER");
     setShowForm(false);
     refresh();
   }

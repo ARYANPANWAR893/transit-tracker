@@ -71,8 +71,18 @@ export default function PhotoGallery({
 
       {photos.length === 0 ? (
         <div className="rounded-lg border border-dashed border-black/15 p-4 text-sm text-black/50 dark:border-white/20 dark:text-white/50">
-          No photos yet. MA SKU: <span className="font-medium">{product.maSku}</span> · KM SKU:{" "}
-          <span className="font-medium">{product.kmSku}</span>
+          No photos yet.{" "}
+          {product.maSku && (
+            <>
+              MASKU: <span className="font-medium">{product.maSku}</span>{" "}
+            </>
+          )}
+          {product.kmwId && (
+            <>
+              · KMW ID: <span className="font-medium">{product.kmwId}</span>
+            </>
+          )}
+          {!product.maSku && !product.kmwId && "No identifiers on file either."}
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">

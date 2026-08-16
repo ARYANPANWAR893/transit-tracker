@@ -19,6 +19,12 @@ function formatDate(value: string | null): string {
   });
 }
 
+function money(amount: number | null, currency: string): string {
+  if (amount === null) return "—";
+  const symbol = currency === "INR" ? "₹" : currency === "CNY" ? "¥" : `${currency} `;
+  return `${symbol}${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
 const columnHelper = createColumnHelper<OrderListItem>();
 
 const columns = [
@@ -32,53 +38,59 @@ const columns = [
     header: "Product",
     cell: (info) => {
       const row = info.row.original;
+      const ids = [row.product.maSku && `MASKU ${row.product.maSku}`, row.product.kmwId && `KMW ${row.product.kmwId}`]
+        .filter(Boolean)
+        .join(" · ");
       return (
         <div>
           <div className="font-medium">{row.product.name}</div>
-          <div className="text-xs text-black/40 dark:text-white/40">
-            MA {row.product.maSku} · KM {row.product.kmSku}
-          </div>
+          {ids && <div className="text-xs text-black/40 dark:text-white/40">{ids}</div>}
         </div>
       );
     },
   }),
   columnHelper.display({
-    id: "family",
-    header: "Family",
-    cell: (info) => info.row.original.product.family?.name || "—",
+    id: "requester",
+    header: "Requested By",
+    cell: (info) => info.row.original.createdBy.name,
   }),
   columnHelper.accessor((row) => row.qty, {
     id: "qty",
     header: "QTY",
     cell: (info) => {
       const row = info.row.original;
-      return row.qtyReceived > 0 ? `${row.qtyReceived}/${row.qty}` : row.qty;
+      return row.acceptedQty !== null ? `${row.acceptedQty}/${row.qty}` : row.qty;
     },
   }),
-  columnHelper.accessor((row) => row.requestedDate, {
-    id: "requestedDate",
-    header: "Requested",
-    cell: (info) => formatDate(info.getValue()),
+  columnHelper.accessor((row) => row.requestedPriceInr, {
+    id: "requestedPriceInr",
+    header: "Price",
+    cell: (info) => {
+      const row = info.row.original;
+      return (
+        <div>
+          <div>{money(row.requestedPriceInr, "INR")}</div>
+          {row.requestedPriceCny !== null && (
+            <div className="text-xs text-black/40 dark:text-white/40">≈ {money(row.requestedPriceCny, "CNY")}</div>
+          )}
+        </div>
+      );
+    },
   }),
   columnHelper.accessor((row) => row.neededByDate, {
     id: "neededByDate",
     header: "Needed By",
     cell: (info) => formatDate(info.getValue()),
   }),
-  columnHelper.accessor((row) => row.containerNumber, {
-    id: "containerNumber",
-    header: "Container #",
-    cell: (info) => info.getValue() || "—",
-  }),
-  columnHelper.accessor((row) => row.estArrivalDate, {
-    id: "estArrivalDate",
-    header: "Est. Arrival",
-    cell: (info) => formatDate(info.getValue()),
+  columnHelper.display({
+    id: "container",
+    header: "Container",
+    cell: (info) => info.row.original.containerName ?? "—",
   }),
   columnHelper.display({
-    id: "finalArrivedDate",
-    header: "Arrived",
-    cell: (info) => formatDate(info.row.original.finalArrivedDate),
+    id: "expectedArrival",
+    header: "Expected Arrival",
+    cell: (info) => formatDate(info.row.original.acceptedExpectedArrivalDate),
   }),
   columnHelper.display({
     id: "meta",
@@ -99,10 +111,8 @@ const SORTABLE_COLUMN_IDS = new Set([
   "status",
   "productName",
   "qty",
-  "requestedDate",
+  "requestedPriceInr",
   "neededByDate",
-  "containerNumber",
-  "estArrivalDate",
 ]);
 
 export default function OrderTable({

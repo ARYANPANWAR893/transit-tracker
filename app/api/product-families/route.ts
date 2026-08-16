@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, hasRole } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
+import { canManageCatalog } from "@/lib/permissions";
 
 export async function GET() {
   const families = await prisma.productFamily.findMany({ orderBy: { name: "asc" } });
@@ -9,7 +10,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!hasRole(user, ["ADMIN", "EDITOR"])) {
+  if (!canManageCatalog(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

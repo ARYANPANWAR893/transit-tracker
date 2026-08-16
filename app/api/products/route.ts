@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, hasRole } from "@/lib/session";
+import { getCurrentUser } from "@/lib/session";
+import { canManageCatalog } from "@/lib/permissions";
+import { logActivity } from "@/lib/activityLog";
+
+const IDENTIFIER_FIELDS = ["amazonSku", "amazonAsin", "flipkartSku", "flipkartAsin", "maSku", "kmwId"] as const;
+
+function cleanStr(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
 
 export async function GET(request: NextRequest) {
   const search = request.nextUrl.searchParams.get("search")?.trim();
@@ -10,8 +18,7 @@ export async function GET(request: NextRequest) {
       ? {
           OR: [
             { name: { contains: search, mode: "insensitive" } },
-            { maSku: { contains: search, mode: "insensitive" } },
-            { kmSku: { contains: search, mode: "insensitive" } },
+            ...IDENTIFIER_FIELDS.map((f) => ({ [f]: { contains: search, mode: "insensitive" as const } })),
           ],
         }
       : undefined,
@@ -24,35 +31,39 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!hasRole(user, ["ADMIN", "EDITOR"])) {
+  if (!canManageCatalog(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, maSku, kmSku, familyId } = await request.json();
+  const body = await request.json();
+  const identifiers = Object.fromEntries(
+    IDENTIFIER_FIELDS.map((f) => [f, cleanStr(body[f])])
+  ) as Record<(typeof IDENTIFIER_FIELDS)[number], string | null>;
 
-  if (
-    typeof name !== "string" ||
-    !name.trim() ||
-    typeof maSku !== "string" ||
-    !maSku.trim() ||
-    typeof kmSku !== "string" ||
-    !kmSku.trim()
-  ) {
-    return NextResponse.json({ error: "Name, MA SKU, and KM SKU are required" }, { status: 400 });
+  if (!IDENTIFIER_FIELDS.some((f) => identifiers[f])) {
+    return NextResponse.json({ error: "At least one product identifier is required" }, { status: 400 });
   }
 
   try {
     const product = await prisma.product.create({
       data: {
-        name: name.trim(),
-        maSku: maSku.trim(),
-        kmSku: kmSku.trim(),
-        familyId: typeof familyId === "string" && familyId ? familyId : null,
+        name: cleanStr(body.name) || "Unnamed product",
+        ...identifiers,
+        familyId: typeof body.familyId === "string" && body.familyId ? body.familyId : null,
       },
       include: { family: true },
     });
+
+    await logActivity({
+      actor: user,
+      action: "PRODUCT_CREATED",
+      entityType: "Product",
+      entityId: product.id,
+      newValue: { name: product.name, ...identifiers },
+    });
+
     return NextResponse.json(product, { status: 201 });
   } catch {
-    return NextResponse.json({ error: "MA SKU or KM SKU already in use" }, { status: 409 });
+    return NextResponse.json({ error: "One of the identifiers is already in use" }, { status: 409 });
   }
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasRole } from "@/lib/session";
 import { hashPassword } from "@/lib/auth";
 import { toPublicUser } from "@/lib/publicUser";
+import { logActivity } from "@/lib/activityLog";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     !email.trim() ||
     typeof password !== "string" ||
     password.length < 8 ||
-    !["ADMIN", "EDITOR", "VIEWER"].includes(role)
+    !["ADMIN", "ORDERER", "ORDER_ACCEPTER"].includes(role)
   ) {
     return NextResponse.json(
       { error: "Name, email, a password of 8+ characters, and a valid role are required" },
@@ -44,6 +45,13 @@ export async function POST(request: NextRequest) {
         passwordHash: await hashPassword(password),
         role,
       },
+    });
+    await logActivity({
+      actor: user,
+      action: "USER_CREATED",
+      entityType: "User",
+      entityId: created.id,
+      newValue: { name: created.name, email: created.email, role: created.role },
     });
     return NextResponse.json(toPublicUser(created), { status: 201 });
   } catch {
