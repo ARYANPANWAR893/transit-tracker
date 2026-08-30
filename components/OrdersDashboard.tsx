@@ -11,17 +11,6 @@ import AdminStatTiles from "@/components/AdminStatTiles";
 import { canCreateOrder } from "@/lib/permissions";
 import { inputClass, primaryButtonClass, secondaryButtonClass } from "@/lib/formStyles";
 
-const ALL_STATUS_OPTIONS: { value: OrderStatus | ""; label: string }[] = [
-  { value: "", label: "All statuses" },
-  { value: "REQUESTED", label: "Requested" },
-  { value: "ACCEPTED", label: "Accepted" },
-  { value: "REJECTED", label: "Rejected" },
-  { value: "WITHDRAWN", label: "Withdrawn" },
-  { value: "IN_TRANSIT", label: "In Transit" },
-  { value: "ARRIVED", label: "Arrived (awaiting confirmation)" },
-  { value: "CONFIRMED_RECEIVED", label: "Completed" },
-];
-
 function quickFiltersFor(role: PublicUser["role"]): { label: string; status: OrderStatus | "" }[] {
   if (role === "ORDER_ACCEPTER") {
     return [
@@ -148,20 +137,6 @@ export default function OrdersDashboard({ currentUser }: { currentUser: PublicUs
           placeholder="Search product, SKU/ASIN, requester…"
           className={`${inputClass} w-64`}
         />
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value as OrderStatus | "");
-            setPage(1);
-          }}
-          className={inputClass + " w-auto"}
-        >
-          {ALL_STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
         <select
           value={familyId}
           onChange={(e) => {

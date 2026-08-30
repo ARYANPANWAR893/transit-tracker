@@ -105,6 +105,8 @@ model Product {
   amazonAsin   String?
   flipkartSku  String?
   flipkartAsin String?
+  meeshoSku        String?
+  meeshoProductId  String?
   maSku    String?        @unique
   kmwId    String?        @unique
   familyId String?
@@ -126,7 +128,10 @@ model Order {
 
   // --- Request (Orderer) ---
   qty              Int
-  requestedPriceInr Decimal  @db.Decimal(14, 2)
+  // Optional: the Orderer no longer has to name a price. When given, it's still
+  // converted and logged like any other conversion; the definitive price is
+  // whatever the Order Accepter sets on acceptance (acceptedPriceCny/Inr below).
+  requestedPriceInr Decimal? @db.Decimal(14, 2)
   requestedPriceCny Decimal? @db.Decimal(14, 2) // cached; CurrencyConversion has the audit trail
   requestedDate    DateTime
   neededByDate     DateTime

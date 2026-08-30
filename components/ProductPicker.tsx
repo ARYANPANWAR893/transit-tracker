@@ -12,6 +12,8 @@ function identifierSummary(p: Product): string {
     p.amazonAsin && `ASIN ${p.amazonAsin}`,
     p.flipkartSku && `Flipkart SKU ${p.flipkartSku}`,
     p.flipkartAsin && `Flipkart ASIN ${p.flipkartAsin}`,
+    p.meeshoSku && `Meesho SKU ${p.meeshoSku}`,
+    p.meeshoProductId && `Meesho ID ${p.meeshoProductId}`,
   ].filter(Boolean);
   return bits.join(" · ") || "No identifiers on file";
 }
@@ -40,9 +42,16 @@ export default function ProductPicker({
       .filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
-          [p.maSku, p.kmwId, p.amazonSku, p.amazonAsin, p.flipkartSku, p.flipkartAsin].some((v) =>
-            v?.toLowerCase().includes(q)
-          )
+          [
+            p.maSku,
+            p.kmwId,
+            p.amazonSku,
+            p.amazonAsin,
+            p.flipkartSku,
+            p.flipkartAsin,
+            p.meeshoSku,
+            p.meeshoProductId,
+          ].some((v) => v?.toLowerCase().includes(q))
       )
       .slice(0, 8);
   }, [products, query]);
@@ -125,6 +134,8 @@ export default function ProductPicker({
                     amazonAsin: null,
                     flipkartSku: null,
                     flipkartAsin: null,
+                    meeshoSku: null,
+                    meeshoProductId: null,
                     maSku: null,
                     kmwId: null,
                     familyId: null,

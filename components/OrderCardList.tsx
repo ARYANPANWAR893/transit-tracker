@@ -45,7 +45,8 @@ export default function OrderCardList({
             <div>
               <h3 className="font-semibold leading-tight">{order.product.name}</h3>
               <p className="text-xs text-black/50 dark:text-white/50">
-                {order.createdBy.name} · {money(order.requestedPriceInr, "INR")}
+                {order.createdBy.name}
+                {order.acceptedPriceInr !== null && ` · ${money(order.acceptedPriceInr, "INR")}`}
               </p>
             </div>
             <StatusPill status={order.status} />

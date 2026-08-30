@@ -36,40 +36,37 @@ export default function NavBar({ user }: { user: PublicUser }) {
 
   return (
     <div className="mb-5">
-      <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-5">
-          <div>
-            <h1 className="text-xl font-semibold">OMS</h1>
-            <p className="text-sm text-black/50 dark:text-white/50">China sourcing & order tracking</p>
+      <header className="mb-3 flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold">OMS</h1>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-black/50 dark:text-white/50">
+              {user.name} · {ROLE_LABELS[user.role]}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="rounded-lg px-3 py-1.5 text-sm text-black/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
+            >
+              Log out
+            </button>
           </div>
-          <nav className="flex flex-wrap gap-1">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                  pathname === link.href
-                    ? "bg-black text-white dark:bg-white dark:text-black"
-                    : "text-black/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/10"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-black/50 dark:text-white/50">
-            {user.name} · {ROLE_LABELS[user.role]}
-          </span>
-          <button
-            onClick={handleLogout}
-            className="rounded-lg px-3 py-1.5 text-sm text-black/50 hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/10"
-          >
-            Log out
-          </button>
-        </div>
+        <nav className="flex flex-wrap gap-1">
+          {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                pathname === link.href
+                  ? "bg-black text-white dark:bg-white dark:text-black"
+                  : "text-black/60 hover:bg-black/5 dark:text-white/60 dark:hover:bg-white/10"
+              }`}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
       </header>
 
       {user.role === "ORDERER" && <ArrivalNotificationBanner />}

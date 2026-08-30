@@ -13,7 +13,7 @@ const SORTABLE_FIELDS = [
   "qty",
   "status",
   "createdAt",
-  "requestedPriceInr",
+  "acceptedPriceInr",
   "productName",
 ] as const;
 type SortField = (typeof SORTABLE_FIELDS)[number];
@@ -55,6 +55,8 @@ export async function GET(request: NextRequest) {
       { product: { amazonAsin: { contains: search, mode: "insensitive" } } },
       { product: { flipkartSku: { contains: search, mode: "insensitive" } } },
       { product: { flipkartAsin: { contains: search, mode: "insensitive" } } },
+      { product: { meeshoSku: { contains: search, mode: "insensitive" } } },
+      { product: { meeshoProductId: { contains: search, mode: "insensitive" } } },
     ];
   }
 
@@ -80,7 +82,16 @@ export async function GET(request: NextRequest) {
   });
 }
 
-const IDENTIFIER_FIELDS = ["amazonSku", "amazonAsin", "flipkartSku", "flipkartAsin", "maSku", "kmwId"] as const;
+const IDENTIFIER_FIELDS = [
+  "amazonSku",
+  "amazonAsin",
+  "flipkartSku",
+  "flipkartAsin",
+  "meeshoSku",
+  "meeshoProductId",
+  "maSku",
+  "kmwId",
+] as const;
 
 function cleanStr(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -93,20 +104,24 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { productId, product: newProduct, qty, requestedPriceInr, neededByDate, remarks, hasImage } = body;
+  const { productId, product: newProduct, qty, requestedPriceInr: rawRequestedPriceInr, neededByDate, remarks, hasImage } = body;
 
   if (
     typeof qty !== "number" ||
     !Number.isFinite(qty) ||
     qty <= 0 ||
-    typeof requestedPriceInr !== "number" ||
-    !Number.isFinite(requestedPriceInr) ||
-    requestedPriceInr <= 0 ||
     typeof neededByDate !== "string" ||
     Number.isNaN(Date.parse(neededByDate))
   ) {
-    return NextResponse.json({ error: "Quantity, INR price, and needed-by date are required" }, { status: 400 });
+    return NextResponse.json({ error: "Quantity and needed-by date are required" }, { status: 400 });
   }
+
+  // Price is optional — the Orderer isn't required to name one; the definitive
+  // price is whatever the Order Accepter sets on acceptance.
+  const requestedPriceInr: number | null =
+    typeof rawRequestedPriceInr === "number" && Number.isFinite(rawRequestedPriceInr) && rawRequestedPriceInr > 0
+      ? rawRequestedPriceInr
+      : null;
 
   // Resolve the product: either an existing one, or an inline draft with at
   // least one of the six identifiers (or a to-be-attached photo).
@@ -145,16 +160,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "A product (existing or new) is required" }, { status: 400 });
   }
 
-  // Convert INR -> CNY and keep the full audit trail, not just the number.
+  // Convert INR -> CNY and keep the full audit trail, not just the number —
+  // only when a price was actually given.
   let requestedPriceCny: number | null = null;
   let conversion: Awaited<ReturnType<typeof convertCurrency>> | null = null;
-  try {
-    conversion = await convertCurrency(requestedPriceInr, "INR", "CNY");
-    requestedPriceCny = conversion.convertedAmount;
-  } catch (err) {
-    // Order creation shouldn't hard-fail just because the FX API had a blip;
-    // the conversion can be retried/backfilled, but we surface the failure.
-    console.error("Currency conversion failed on order creation:", err);
+  if (requestedPriceInr !== null) {
+    try {
+      conversion = await convertCurrency(requestedPriceInr, "INR", "CNY");
+      requestedPriceCny = conversion.convertedAmount;
+    } catch (err) {
+      // Order creation shouldn't hard-fail just because the FX API had a blip;
+      // the conversion can be retried/backfilled, but we surface the failure.
+      console.error("Currency conversion failed on order creation:", err);
+    }
   }
 
   const order = await prisma.order.create({
@@ -172,7 +190,9 @@ export async function POST(request: NextRequest) {
             conversions: {
               create: {
                 kind: "REQUEST",
-                originalAmount: requestedPriceInr,
+                // Non-null: this block only runs when `conversion` is set, which only
+                // happens after a successful convertCurrency() call on a non-null price.
+                originalAmount: requestedPriceInr!,
                 originalCurrency: "INR",
                 convertedAmount: conversion.convertedAmount,
                 convertedCurrency: "CNY",

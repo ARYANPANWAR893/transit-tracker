@@ -11,6 +11,8 @@ const EMPTY_DRAFT: ProductDraft = {
   amazonAsin: null,
   flipkartSku: null,
   flipkartAsin: null,
+  meeshoSku: null,
+  meeshoProductId: null,
   maSku: null,
   kmwId: null,
   familyId: null,
@@ -24,6 +26,8 @@ function identifierSummary(p: Product): string {
     p.amazonAsin && `ASIN ${p.amazonAsin}`,
     p.flipkartSku && `Flipkart SKU ${p.flipkartSku}`,
     p.flipkartAsin && `Flipkart ASIN ${p.flipkartAsin}`,
+    p.meeshoSku && `Meesho SKU ${p.meeshoSku}`,
+    p.meeshoProductId && `Meesho ID ${p.meeshoProductId}`,
   ].filter(Boolean);
   return bits.join(" · ") || "—";
 }
@@ -97,14 +101,14 @@ export default function ProductManager({
 
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="font-semibold">Products</h2>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search name / any identifier"
-            className={`${inputClass} w-56`}
+            className={`${inputClass} sm:w-56`}
           />
           {canEdit && (
             <button onClick={() => setShowForm((v) => !v)} className={primaryButtonClass}>

@@ -66,7 +66,8 @@ export default function AcceptModal({
       {order && (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <p className="text-sm text-black/60 dark:text-white/60">
-            {order.product.name} · requested {order.qty} at ₹{order.requestedPriceInr.toLocaleString()}
+            {order.product.name} · requested {order.qty}
+            {order.requestedPriceInr !== null && ` at ₹${order.requestedPriceInr.toLocaleString()}`}
           </p>
 
           <div className="grid grid-cols-2 gap-3">

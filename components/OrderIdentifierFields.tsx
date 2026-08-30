@@ -8,6 +8,8 @@ const IDENTIFIER_LABELS: { key: keyof ProductDraft; label: string }[] = [
   { key: "amazonAsin", label: "Amazon ASIN" },
   { key: "flipkartSku", label: "Flipkart SKU" },
   { key: "flipkartAsin", label: "Flipkart ASIN" },
+  { key: "meeshoSku", label: "Meesho SKU" },
+  { key: "meeshoProductId", label: "Meesho Product ID" },
   { key: "maSku", label: "MASKU" },
   { key: "kmwId", label: "KMW ID" },
 ];

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ProductPicker from "@/components/ProductPicker";
 import OrderIdentifierFields from "@/components/OrderIdentifierFields";
-import CurrencyPreview from "@/components/CurrencyPreview";
 import { inputClass, labelClass, primaryButtonClass } from "@/lib/formStyles";
 import type { ProductFamily, ProductSelection } from "@/lib/types";
 
@@ -13,7 +12,6 @@ export default function NewOrderForm() {
   const [selection, setSelection] = useState<ProductSelection | null>(null);
   const [families, setFamilies] = useState<ProductFamily[]>([]);
   const [qty, setQty] = useState("");
-  const [priceInr, setPriceInr] = useState("");
   const [neededByDate, setNeededByDate] = useState("");
   const [remarks, setRemarks] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -52,7 +50,6 @@ export default function NewOrderForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         qty: Number(qty),
-        requestedPriceInr: Number(priceInr),
         neededByDate,
         remarks: remarks.trim() || undefined,
         hasImage: !!imageFile,
@@ -112,37 +109,19 @@ export default function NewOrderForm() {
 
       <div className="rounded-2xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-white/5">
         <h2 className="mb-3 font-semibold">Order details</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelClass} htmlFor="qty">
-              Required quantity
-            </label>
-            <input
-              id="qty"
-              type="number"
-              min={1}
-              required
-              value={qty}
-              onChange={(e) => setQty(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className={labelClass} htmlFor="price">
-              Desired price (INR)
-            </label>
-            <input
-              id="price"
-              type="number"
-              min={0.01}
-              step="0.01"
-              required
-              value={priceInr}
-              onChange={(e) => setPriceInr(e.target.value)}
-              className={inputClass}
-            />
-            <CurrencyPreview amount={Number(priceInr)} from="INR" to="CNY" />
-          </div>
+        <div>
+          <label className={labelClass} htmlFor="qty">
+            Required quantity
+          </label>
+          <input
+            id="qty"
+            type="number"
+            min={1}
+            required
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            className={inputClass}
+          />
         </div>
 
         <div className="mt-3">
