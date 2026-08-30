@@ -44,3 +44,6 @@ next-env.d.ts
 
 # local dev image storage (see lib/blob.ts)
 .uploads/
+
+# generated sample fixtures
+sample-container-*.xlsx
