@@ -51,6 +51,8 @@ function identifierRows(product: OrderDetail["product"]) {
     ["Amazon ASIN", product.amazonAsin],
     ["Flipkart SKU", product.flipkartSku],
     ["Flipkart ASIN", product.flipkartAsin],
+    ["Meesho SKU", product.meeshoSku],
+    ["Meesho Product ID", product.meeshoProductId],
     ["MASKU", product.maSku],
     ["KMW ID", product.kmwId],
   ].filter(([, v]) => v) as [string, string][];
@@ -150,8 +152,12 @@ export default function OrderDetailDrawer({
 
             <dl className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3">
               <Field label="QTY requested" value={String(order.qty)} />
-              <Field label="Requested price" value={money(order.requestedPriceInr, "INR")} />
-              <Field label="≈ CNY" value={money(order.requestedPriceCny, "CNY")} />
+              {order.requestedPriceInr !== null && (
+                <>
+                  <Field label="Requested price" value={money(order.requestedPriceInr, "INR")} />
+                  <Field label="≈ CNY" value={money(order.requestedPriceCny, "CNY")} />
+                </>
+              )}
               <Field label="Requested" value={formatDate(order.requestedDate)} />
               <Field label="Needed by" value={formatDate(order.neededByDate)} />
               <Field label="Requested by" value={order.createdBy.name} />

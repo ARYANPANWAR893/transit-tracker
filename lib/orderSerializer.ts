@@ -16,6 +16,8 @@ type ProductLike = {
   amazonAsin: string | null;
   flipkartSku: string | null;
   flipkartAsin: string | null;
+  meeshoSku: string | null;
+  meeshoProductId: string | null;
   maSku: string | null;
   kmwId: string | null;
   familyId: string | null;
@@ -34,6 +36,8 @@ function serializeProduct(product: ProductLike) {
     amazonAsin: product.amazonAsin,
     flipkartSku: product.flipkartSku,
     flipkartAsin: product.flipkartAsin,
+    meeshoSku: product.meeshoSku,
+    meeshoProductId: product.meeshoProductId,
     maSku: product.maSku,
     kmwId: product.kmwId,
     familyId: product.familyId,
@@ -106,7 +110,7 @@ function baseFields(order: OrderBase) {
     product: serializeProduct(order.product),
 
     qty: order.qty,
-    requestedPriceInr: num(order.requestedPriceInr) ?? 0,
+    requestedPriceInr: num(order.requestedPriceInr),
     requestedPriceCny: num(order.requestedPriceCny),
     requestedDate: order.requestedDate.toISOString(),
     neededByDate: order.neededByDate.toISOString(),

@@ -62,16 +62,17 @@ const columns = [
       return row.acceptedQty !== null ? `${row.acceptedQty}/${row.qty}` : row.qty;
     },
   }),
-  columnHelper.accessor((row) => row.requestedPriceInr, {
-    id: "requestedPriceInr",
+  columnHelper.accessor((row) => row.acceptedPriceInr, {
+    id: "acceptedPriceInr",
     header: "Price",
     cell: (info) => {
       const row = info.row.original;
+      if (row.acceptedPriceInr === null) return <span className="text-black/40 dark:text-white/40">—</span>;
       return (
         <div>
-          <div>{money(row.requestedPriceInr, "INR")}</div>
-          {row.requestedPriceCny !== null && (
-            <div className="text-xs text-black/40 dark:text-white/40">≈ {money(row.requestedPriceCny, "CNY")}</div>
+          <div>{money(row.acceptedPriceInr, "INR")}</div>
+          {row.acceptedPriceCny !== null && (
+            <div className="text-xs text-black/40 dark:text-white/40">≈ {money(row.acceptedPriceCny, "CNY")}</div>
           )}
         </div>
       );
@@ -111,7 +112,7 @@ const SORTABLE_COLUMN_IDS = new Set([
   "status",
   "productName",
   "qty",
-  "requestedPriceInr",
+  "acceptedPriceInr",
   "neededByDate",
 ]);
 

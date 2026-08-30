@@ -4,7 +4,16 @@ import { getCurrentUser } from "@/lib/session";
 import { canManageCatalog } from "@/lib/permissions";
 import { logActivity } from "@/lib/activityLog";
 
-const IDENTIFIER_FIELDS = ["amazonSku", "amazonAsin", "flipkartSku", "flipkartAsin", "maSku", "kmwId"] as const;
+const IDENTIFIER_FIELDS = [
+  "amazonSku",
+  "amazonAsin",
+  "flipkartSku",
+  "flipkartAsin",
+  "meeshoSku",
+  "meeshoProductId",
+  "maSku",
+  "kmwId",
+] as const;
 
 export async function PATCH(
   request: NextRequest,

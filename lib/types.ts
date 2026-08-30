@@ -39,6 +39,8 @@ export type Product = {
   amazonAsin: string | null;
   flipkartSku: string | null;
   flipkartAsin: string | null;
+  meeshoSku: string | null;
+  meeshoProductId: string | null;
   maSku: string | null;
   kmwId: string | null;
   familyId: string | null;
@@ -54,6 +56,8 @@ export type ProductDraft = {
   amazonAsin: string | null;
   flipkartSku: string | null;
   flipkartAsin: string | null;
+  meeshoSku: string | null;
+  meeshoProductId: string | null;
   maSku: string | null;
   kmwId: string | null;
   familyId: string | null;
@@ -164,7 +168,7 @@ export type OrderDetail = {
   product: Product;
 
   qty: number;
-  requestedPriceInr: number;
+  requestedPriceInr: number | null;
   requestedPriceCny: number | null;
   requestedDate: string;
   neededByDate: string;
