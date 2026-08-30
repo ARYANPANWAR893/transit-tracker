@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { canActOnFulfillment } from "@/lib/permissions";
 import { logActivity } from "@/lib/activityLog";
-import { uploadBlob } from "@/lib/blob";
+import { uploadBlob, BlobNotConfiguredError } from "@/lib/blob";
 import { parseContainerExcel, extractCandidateCodes, classifyMatch, normalizeCode } from "@/lib/excelImport";
 
 export const maxDuration = 60;
@@ -43,6 +43,12 @@ export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!canActOnFulfillment(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Fail fast: without a Blob token every row's image upload would throw, and
+  // the run would finish "successfully" with an error against all ~100 rows.
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return NextResponse.json({ error: new BlobNotConfiguredError().message }, { status: 503 });
   }
 
   const { containerName, blobUrl, fileName } = await request.json();

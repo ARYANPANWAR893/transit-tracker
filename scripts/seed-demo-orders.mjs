@@ -6,9 +6,23 @@ import { randomUUID } from "node:crypto";
 const client = new Client({ connectionString: process.env.DATABASE_URL });
 await client.connect();
 
-const admin = (await client.query('SELECT id FROM "User" WHERE role = $1 LIMIT 1', ["ADMIN"])).rows[0];
-if (!admin) throw new Error("No admin user found — create one first.");
-const userId = admin.id;
+// Orders are created BY an Orderer (that's who raises requests in the real
+// flow); the fulfilment-side timestamps are attributed to an Admin/Accepter.
+const ordererEmail = process.env.SEED_ORDERER_EMAIL;
+const orderer = ordererEmail
+  ? (await client.query('SELECT id FROM "User" WHERE email = $1', [ordererEmail])).rows[0]
+  : (await client.query(`SELECT id FROM "User" WHERE role = 'ORDERER' ORDER BY "createdAt" LIMIT 1`)).rows[0];
+// Prefer a real Order Accepter; fall back to an Admin, who can also fulfil.
+const accepter = (
+  await client.query(
+    `SELECT id FROM "User" WHERE role IN ('ORDER_ACCEPTER','ADMIN')
+     ORDER BY CASE role WHEN 'ORDER_ACCEPTER' THEN 0 ELSE 1 END LIMIT 1`
+  )
+).rows[0];
+if (!accepter) throw new Error("No order accepter or admin found — create one first.");
+if (!orderer) throw new Error("No orderer found — create one first (or set SEED_ORDERER_EMAIL).");
+const userId = orderer.id;         // raises the request
+const accepterId = accepter.id;    // accepts / rejects / marks arrived
 
 const products = (await client.query('SELECT id, name FROM "Product" ORDER BY name LIMIT 7')).rows;
 if (products.length < 7) throw new Error("Need at least 7 products — run the product import first.");
@@ -75,14 +89,14 @@ async function insertOrder({
       acceptedPriceInr,
       acceptedExpectedArrivalOffset !== null ? days(acceptedExpectedArrivalOffset) : null,
       acceptanceDateOffset !== null ? days(acceptanceDateOffset) : null,
-      acceptedQty !== null ? userId : null,
+      acceptedQty !== null ? accepterId : null,
       rejectionReason,
       rejectedOffset !== null ? days(rejectedOffset) : null,
-      rejectionReason !== null ? userId : null,
+      rejectionReason !== null ? accepterId : null,
       withdrawnOffset !== null ? days(withdrawnOffset) : null,
       withdrawnOffset !== null ? userId : null,
       arrivedOffset !== null ? days(arrivedOffset) : null,
-      arrivedOffset !== null ? userId : null,
+      arrivedOffset !== null ? accepterId : null,
       confirmedOffset !== null ? days(confirmedOffset) : null,
       confirmedOffset !== null ? userId : null,
     ]

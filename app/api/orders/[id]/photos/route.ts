@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { canCommentOnOrder } from "@/lib/permissions";
-import { uploadBlob } from "@/lib/blob";
+import { uploadBlob, BlobNotConfiguredError } from "@/lib/blob";
 import { logActivity } from "@/lib/activityLog";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -34,7 +34,24 @@ export async function POST(
   }
 
   const pathname = `orders/${id}/${crypto.randomUUID()}-${file.name}`;
-  const { url, pathname: blobPathname } = await uploadBlob(pathname, file);
+
+  let url: string;
+  let blobPathname: string;
+  try {
+    ({ url, pathname: blobPathname } = await uploadBlob(pathname, file));
+  } catch (err) {
+    // Surface the reason instead of a bare 500 -- a missing Blob token is a
+    // deployment config problem, not something the uploader can fix by
+    // picking a different file.
+    if (err instanceof BlobNotConfiguredError) {
+      return NextResponse.json({ error: err.message }, { status: 503 });
+    }
+    console.error("Photo upload to Blob failed:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to store the image" },
+      { status: 502 }
+    );
+  }
 
   const photo = await prisma.photo.create({
     data: { orderId: id, url, blobPathname, uploadedById: user.id, source: "ORDERER_UPLOAD" },
