@@ -1,33 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { ordersToTsv } from "@/lib/tsv";
-import type { OrderListResponse } from "@/lib/types";
+import { requirementsToTsv } from "@/lib/tsv";
+import { secondaryButtonClass } from "@/lib/formStyles";
+import type { RequirementListResponse } from "@/lib/types";
 
-/** Always exports every non-arrived order, independent of the dashboard's current filters. */
+/** Copies everything still moving, as TSV, ready to paste into a spreadsheet. */
 export default function CopyExcelButton() {
-  const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [state, setState] = useState<"idle" | "copying" | "done" | "error">("idle");
 
   async function handleCopy() {
-    setLoading(true);
-    const res = await fetch("/api/orders?pageSize=1000&sortBy=neededByDate&sortDir=asc");
-    setLoading(false);
-    if (!res.ok) return;
-
-    const data: OrderListResponse = await res.json();
-    await navigator.clipboard.writeText(ordersToTsv(data.items));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setState("copying");
+    try {
+      const res = await fetch("/api/requirements?pageSize=200");
+      if (!res.ok) throw new Error();
+      const data: RequirementListResponse = await res.json();
+      await navigator.clipboard.writeText(requirementsToTsv(data.items));
+      setState("done");
+      setTimeout(() => setState("idle"), 2000);
+    } catch {
+      setState("error");
+      setTimeout(() => setState("idle"), 2000);
+    }
   }
 
   return (
-    <button
-      onClick={handleCopy}
-      disabled={loading}
-      className="rounded-lg border border-black/15 px-3.5 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
-    >
-      {copied ? "Copied!" : loading ? "Copying…" : "Copy Excel"}
+    <button onClick={handleCopy} disabled={state === "copying"} className={secondaryButtonClass}>
+      {state === "done" ? "Copied" : state === "error" ? "Couldn't copy" : "Copy Excel"}
     </button>
   );
 }

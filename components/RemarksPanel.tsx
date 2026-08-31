@@ -15,14 +15,14 @@ function formatDateTime(value: string): string {
 }
 
 export default function RemarksPanel({
-  orderId,
+  requirementId,
   remarks,
   currentUserId,
   isAdmin,
   canAdd,
   onChange,
 }: {
-  orderId: string;
+  requirementId: string;
   remarks: Remark[];
   currentUserId: string;
   isAdmin: boolean;
@@ -41,7 +41,7 @@ export default function RemarksPanel({
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch(`/api/orders/${orderId}/remarks`, {
+    const res = await fetch(`/api/requirements/${requirementId}/remarks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body: newBody }),
@@ -59,7 +59,7 @@ export default function RemarksPanel({
 
   async function handleSaveEdit(remarkId: string) {
     if (!editValue.trim()) return;
-    const res = await fetch(`/api/orders/${orderId}/remarks/${remarkId}`, {
+    const res = await fetch(`/api/requirements/${requirementId}/remarks/${remarkId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body: editValue }),
@@ -75,7 +75,7 @@ export default function RemarksPanel({
 
   async function handleDelete(remarkId: string) {
     if (!window.confirm("Delete this remark?")) return;
-    const res = await fetch(`/api/orders/${orderId}/remarks/${remarkId}`, { method: "DELETE" });
+    const res = await fetch(`/api/requirements/${requirementId}/remarks/${remarkId}`, { method: "DELETE" });
     if (res.ok) onChange();
   }
 

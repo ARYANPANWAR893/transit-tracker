@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import type { PublicUser, Role } from "@/lib/types";
+import { ROLE_LABELS } from "@/lib/types";
 import { inputClass, labelClass, primaryButtonClass } from "@/lib/formStyles";
 
-const ROLES: Role[] = ["ADMIN", "ORDERER", "ORDER_ACCEPTER"];
+const ROLES: Role[] = ["ADMIN", "REQUIREMENT_OWNER", "PROCUREMENT_OWNER", "SOURCING_COORDINATOR", "LOADING_COORDINATOR"];
 
 export default function UserManager({ currentUserId }: { currentUserId: string }) {
   const [users, setUsers] = useState<PublicUser[]>([]);
@@ -13,7 +14,7 @@ export default function UserManager({ currentUserId }: { currentUserId: string }
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("ORDERER");
+  const [role, setRole] = useState<Role>("REQUIREMENT_OWNER");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,7 +50,7 @@ export default function UserManager({ currentUserId }: { currentUserId: string }
     setName("");
     setEmail("");
     setPassword("");
-    setRole("ORDERER");
+    setRole("REQUIREMENT_OWNER");
     setShowForm(false);
     refresh();
   }
@@ -139,7 +140,7 @@ export default function UserManager({ currentUserId }: { currentUserId: string }
             <select value={role} onChange={(e) => setRole(e.target.value as Role)} className={inputClass}>
               {ROLES.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {ROLE_LABELS[r]}
                 </option>
               ))}
             </select>
@@ -176,8 +177,8 @@ export default function UserManager({ currentUserId }: { currentUserId: string }
                   >
                     {ROLES.map((r) => (
                       <option key={r} value={r}>
-                        {r}
-                      </option>
+                  {ROLE_LABELS[r]}
+                </option>
                     ))}
                   </select>
                 </td>

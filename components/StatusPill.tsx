@@ -1,33 +1,35 @@
-import type { OrderStatus } from "@/lib/types";
+import type { ContainerStatus, FulfilmentStatus } from "@/lib/types";
+import { CONTAINER_STATUS_LABELS, FULFILMENT_LABELS } from "@/lib/types";
 
-const STATUS_STYLES: Record<OrderStatus, string> = {
-  DRAFT: "bg-black/10 text-black/60 dark:bg-white/10 dark:text-white/60",
+const base =
+  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap";
+
+const FULFILMENT_STYLES: Record<FulfilmentStatus, string> = {
   REQUESTED: "bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300",
-  ACCEPTED: "bg-blue-100 text-blue-800 dark:bg-blue-400/15 dark:text-blue-300",
+  PROCUREMENT_CONFIRMED: "bg-sky-100 text-sky-800 dark:bg-sky-400/15 dark:text-sky-300",
+  ALLOCATED: "bg-indigo-100 text-indigo-800 dark:bg-indigo-400/15 dark:text-indigo-300",
+  PARTIALLY_SHIPPED: "bg-violet-100 text-violet-800 dark:bg-violet-400/15 dark:text-violet-300",
+  FULLY_SHIPPED: "bg-violet-100 text-violet-800 dark:bg-violet-400/15 dark:text-violet-300",
+  PARTIALLY_RECEIVED: "bg-teal-100 text-teal-800 dark:bg-teal-400/15 dark:text-teal-300",
+  RECEIVED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300",
   REJECTED: "bg-red-100 text-red-800 dark:bg-red-400/15 dark:text-red-300",
-  WITHDRAWN: "bg-black/10 text-black/50 dark:bg-white/10 dark:text-white/50",
-  IN_TRANSIT: "bg-purple-100 text-purple-800 dark:bg-purple-400/15 dark:text-purple-300",
-  ARRIVED: "bg-teal-100 text-teal-800 dark:bg-teal-400/15 dark:text-teal-300",
-  CONFIRMED_RECEIVED: "bg-green-100 text-green-800 dark:bg-green-400/15 dark:text-green-300",
+  WITHDRAWN: "bg-black/10 text-black/60 dark:bg-white/10 dark:text-white/60",
 };
 
-const STATUS_LABELS: Record<OrderStatus, string> = {
-  DRAFT: "Draft",
-  REQUESTED: "Requested",
-  ACCEPTED: "Accepted",
-  REJECTED: "Rejected",
-  WITHDRAWN: "Withdrawn",
-  IN_TRANSIT: "In Transit",
-  ARRIVED: "Arrived",
-  CONFIRMED_RECEIVED: "Confirmed Received",
+const CONTAINER_STYLES: Record<ContainerStatus, string> = {
+  CREATED: "bg-black/10 text-black/60 dark:bg-white/10 dark:text-white/60",
+  PROCUREMENT: "bg-sky-100 text-sky-800 dark:bg-sky-400/15 dark:text-sky-300",
+  READY_FOR_LOADING: "bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300",
+  LOADING: "bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300",
+  LOADED: "bg-indigo-100 text-indigo-800 dark:bg-indigo-400/15 dark:text-indigo-300",
+  IN_TRANSIT: "bg-violet-100 text-violet-800 dark:bg-violet-400/15 dark:text-violet-300",
+  ARRIVED: "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300",
 };
 
-export default function StatusPill({ status }: { status: OrderStatus }) {
-  return (
-    <span
-      className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[status]}`}
-    >
-      {STATUS_LABELS[status]}
-    </span>
-  );
+export default function StatusPill({ status }: { status: FulfilmentStatus }) {
+  return <span className={`${base} ${FULFILMENT_STYLES[status]}`}>{FULFILMENT_LABELS[status]}</span>;
+}
+
+export function ContainerStatusPill({ status }: { status: ContainerStatus }) {
+  return <span className={`${base} ${CONTAINER_STYLES[status]}`}>{CONTAINER_STATUS_LABELS[status]}</span>;
 }

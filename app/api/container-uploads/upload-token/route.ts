@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getCurrentUser } from "@/lib/session";
-import { canActOnFulfillment } from "@/lib/permissions";
+import { canUploadManifest } from "@/lib/permissions";
 
 /**
  * Issues a short-lived client token so the browser can upload the raw xlsx
@@ -10,7 +10,7 @@ import { canActOnFulfillment } from "@/lib/permissions";
  */
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
-  if (!canActOnFulfillment(user)) {
+  if (!canUploadManifest(user)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

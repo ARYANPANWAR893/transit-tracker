@@ -1,47 +1,33 @@
-import type { OrderListItem } from "@/lib/types";
+import type { RequirementListItem } from "@/lib/types";
+import { FULFILMENT_LABELS } from "@/lib/types";
 
 const HEADERS = [
-  "Status",
-  "Product Name",
-  "MASKU",
-  "KMW ID",
-  "QTY Requested",
-  "Requested Price (INR)",
-  "Accepted Price (CNY)",
-  "Accepted Price (INR)",
-  "Needed By Date",
-  "Container",
-  "Expected Arrival",
-  "Requested Date",
+  "Status", "Product", "Identifiers", "Required", "Procured", "Allocated",
+  "In Transit", "Received", "Outstanding", "Needed By", "Containers", "Requested",
 ];
 
-const TERMINAL_STATUSES = new Set(["CONFIRMED_RECEIVED", "REJECTED", "WITHDRAWN"]);
+const TERMINAL = new Set(["RECEIVED", "REJECTED", "WITHDRAWN"]);
+const date = (v: string | null) => (v ? v.slice(0, 10) : "");
 
-function formatDate(value: string | null): string {
-  if (!value) return "";
-  return value.slice(0, 10);
-}
-
-/** Everything still active — i.e. not yet completed, rejected, or withdrawn. */
-export function ordersToTsv(orders: OrderListItem[]): string {
-  const rows = orders
-    .filter((o) => !TERMINAL_STATUSES.has(o.status))
-    .map((o) =>
+/** Everything still moving -- not yet fully received, rejected or withdrawn. */
+export function requirementsToTsv(requirements: RequirementListItem[]): string {
+  const rows = requirements
+    .filter((r) => !TERMINAL.has(r.fulfilmentStatus))
+    .map((r) =>
       [
-        o.status,
-        o.product.name,
-        o.product.maSku ?? "",
-        o.product.kmwId ?? "",
-        String(o.qty),
-        o.requestedPriceInr?.toFixed(2) ?? "",
-        o.acceptedPriceCny?.toFixed(2) ?? "",
-        o.acceptedPriceInr?.toFixed(2) ?? "",
-        formatDate(o.neededByDate),
-        o.containerName ?? "",
-        formatDate(o.acceptedExpectedArrivalDate),
-        formatDate(o.requestedDate),
+        FULFILMENT_LABELS[r.fulfilmentStatus],
+        r.product.name,
+        r.product.identifiers.map((i) => i.value).join(" / "),
+        String(r.quantities.required),
+        String(r.quantities.procured),
+        String(r.quantities.allocated),
+        String(r.quantities.inTransit),
+        String(r.quantities.received),
+        String(r.quantities.outstanding),
+        date(r.neededByDate),
+        r.containers.map((c) => c.code).join(" / "),
+        date(r.requestedDate),
       ].join("\t")
     );
-
   return [HEADERS.join("\t"), ...rows].join("\n");
 }

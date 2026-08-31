@@ -2,15 +2,12 @@
 
 import { useRef, useState } from "react";
 import type { Photo, Product } from "@/lib/types";
+import { IDENTIFIER_LABELS } from "@/lib/types";
 
 export default function PhotoGallery({
-  orderId,
-  photos,
-  product,
-  canEdit,
-  onChange,
+  requirementId, photos, product, canEdit, onChange,
 }: {
-  orderId: string;
+  requirementId: string;
   photos: Photo[];
   product: Product;
   canEdit: boolean;
@@ -28,15 +25,12 @@ export default function PhotoGallery({
 
     const formData = new FormData();
     formData.set("file", file);
-
-    const res = await fetch(`/api/orders/${orderId}/photos`, { method: "POST", body: formData });
+    const res = await fetch(`/api/requirements/${requirementId}/photos`, { method: "POST", body: formData });
 
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
-
     if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      setError(body?.error || "Failed to upload photo");
+      setError((await res.json().catch(() => null))?.error || "Couldn't upload that image");
       return;
     }
     onChange();
@@ -44,7 +38,7 @@ export default function PhotoGallery({
 
   async function handleDelete(photoId: string) {
     if (!window.confirm("Delete this photo?")) return;
-    const res = await fetch(`/api/orders/${orderId}/photos/${photoId}`, { method: "DELETE" });
+    const res = await fetch(`/api/requirements/${requirementId}/photos/${photoId}`, { method: "DELETE" });
     if (res.ok) onChange();
   }
 
@@ -56,12 +50,8 @@ export default function PhotoGallery({
           <label className="cursor-pointer text-sm font-medium text-black underline dark:text-white">
             {uploading ? "Uploading…" : "Upload"}
             <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleUpload}
-              disabled={uploading}
-              className="hidden"
+              ref={fileInputRef} type="file" accept="image/*"
+              onChange={handleUpload} disabled={uploading} className="hidden"
             />
           </label>
         )}
@@ -72,23 +62,15 @@ export default function PhotoGallery({
       {photos.length === 0 ? (
         <div className="rounded-lg border border-dashed border-black/15 p-4 text-sm text-black/50 dark:border-white/20 dark:text-white/50">
           No photos yet.{" "}
-          {product.maSku && (
-            <>
-              MASKU: <span className="font-medium">{product.maSku}</span>{" "}
-            </>
-          )}
-          {product.kmwId && (
-            <>
-              · KMW ID: <span className="font-medium">{product.kmwId}</span>
-            </>
-          )}
-          {!product.maSku && !product.kmwId && "No identifiers on file either."}
+          {product.identifiers.length > 0
+            ? product.identifiers.slice(0, 2).map((i) => `${IDENTIFIER_LABELS[i.type]}: ${i.value}`).join(" · ")
+            : "No identifiers on file either."}
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((photo) => (
             <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg">
-              {/* eslint-disable-next-line @next/next/no-img-element -- external Blob URLs, no build-time optimization needed */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- external Blob URLs, no build-time optimisation needed */}
               <img src={photo.url} alt="" className="h-full w-full object-cover" />
               {canEdit && (
                 <button

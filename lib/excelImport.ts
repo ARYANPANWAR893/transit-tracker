@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { normalizeCode } from "@/lib/identifiers";
 
 export type ParsedContainerRow = {
   rowNumber: number;
@@ -130,9 +131,6 @@ export function suggestContainerName(fileName: string): string {
   return raw.replace(/\s+/g, "").toUpperCase();
 }
 
-export function normalizeCode(value: string): string {
-  return value.trim().toUpperCase().replace(/\s+/g, "");
-}
 
 /**
  * Candidate identifier codes for a row: the Item No. column as-is, any
@@ -163,45 +161,64 @@ export function extractCandidateCodes(
   return [...candidates];
 }
 
-export type MatchCandidateOrder = { id: string; maSkuNormalized: string };
+export type IdentifierCandidate = {
+  productId: string;
+  /** Pre-normalised ProductIdentifier.normalizedValue. */
+  normalizedValue: string;
+  label: string;
+};
 
-export type MatchClassification =
-  | { kind: "matched"; orderId: string; note?: string }
-  | { kind: "ambiguous"; orderIds: string[]; note: string }
+export type ProductMatch =
+  | { kind: "matched"; productId: string; matchedOn: string }
+  | { kind: "ambiguous"; productIds: string[]; note: string }
   | { kind: "unmatched" };
 
 /**
- * Exact matches on normalized MASKU are auto-attached. Anything without an
- * exact single hit is surfaced for manual confirmation rather than guessed.
+ * Resolves a manifest row against every registered product identifier -- no
+ * single SKU field is privileged, which is what lets a packing-list code that
+ * is a China code, a KMW ID or a marketplace SKU all find their product.
+ *
+ * A code is auto-attached only when it resolves to exactly one product.
+ * Anything less certain becomes an exception for a human, never a guess.
  */
-export function classifyMatch(
+export function resolveProduct(
   candidates: string[],
-  acceptedOrders: MatchCandidateOrder[]
-): MatchClassification {
+  identifiers: IdentifierCandidate[]
+): ProductMatch {
   const candidateSet = new Set(candidates);
-  const exactHits = acceptedOrders.filter((o) => candidateSet.has(o.maSkuNormalized));
 
-  if (exactHits.length === 1) {
-    return { kind: "matched", orderId: exactHits[0].id };
+  const exact = identifiers.filter((i) => candidateSet.has(i.normalizedValue));
+  const exactProducts = [...new Set(exact.map((i) => i.productId))];
+
+  if (exactProducts.length === 1) {
+    return { kind: "matched", productId: exactProducts[0], matchedOn: exact[0].label };
   }
-  if (exactHits.length > 1) {
+  if (exactProducts.length > 1) {
     return {
       kind: "ambiguous",
-      orderIds: exactHits.map((o) => o.id),
-      note: `${exactHits.length} accepted orders share this MASKU`,
+      productIds: exactProducts,
+      note: `Code matches ${exactProducts.length} different products`,
     };
   }
 
-  const looseHits = acceptedOrders.filter((o) =>
-    candidates.some((c) => c.length >= 3 && (c.includes(o.maSkuNormalized) || o.maSkuNormalized.includes(c)))
+  const loose = identifiers.filter((i) =>
+    candidates.some(
+      (c) =>
+        c.length >= 3 &&
+        i.normalizedValue.length >= 3 &&
+        (c.includes(i.normalizedValue) || i.normalizedValue.includes(c))
+    )
   );
-  if (looseHits.length > 0) {
+  const looseProducts = [...new Set(loose.map((i) => i.productId))];
+  if (looseProducts.length > 0) {
     return {
       kind: "ambiguous",
-      orderIds: looseHits.map((o) => o.id),
-      note: "Only a partial/fuzzy code match was found -- please confirm",
+      productIds: looseProducts,
+      note: "Only a partial code match was found -- please confirm",
     };
   }
 
   return { kind: "unmatched" };
 }
+
+export { normalizeCode };

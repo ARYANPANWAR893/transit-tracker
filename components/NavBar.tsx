@@ -3,29 +3,44 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { PublicUser } from "@/lib/types";
-import ArrivalNotificationBanner from "@/components/ArrivalNotificationBanner";
+import { ROLE_LABELS } from "@/lib/types";
 
+/** Panda and Alice work from containers, not the whole catalogue. */
 function linksFor(role: PublicUser["role"]): { href: string; label: string }[] {
-  const links = [{ href: "/", label: "Orders" }, { href: "/products", label: "Products" }];
-  if (role === "ORDER_ACCEPTER" || role === "ADMIN") {
-    links.push({ href: "/container-uploads", label: "Container Uploads" });
+  switch (role) {
+    case "REQUIREMENT_OWNER":
+      return [
+        { href: "/", label: "My Requirements" },
+        { href: "/products", label: "Products" },
+      ];
+    case "PROCUREMENT_OWNER":
+      return [
+        { href: "/", label: "Requirements" },
+        { href: "/products", label: "Products" },
+        { href: "/containers", label: "Containers" },
+      ];
+    case "SOURCING_COORDINATOR":
+      return [
+        { href: "/containers", label: "Containers" },
+        { href: "/", label: "Requirements" },
+        { href: "/products", label: "Products" },
+      ];
+    case "LOADING_COORDINATOR":
+      return [{ href: "/containers", label: "Containers" }];
+    default:
+      return [
+        { href: "/", label: "Requirements" },
+        { href: "/products", label: "Products" },
+        { href: "/containers", label: "Containers" },
+        { href: "/users", label: "Users" },
+        { href: "/activity-logs", label: "Activity" },
+      ];
   }
-  if (role === "ADMIN") {
-    links.push({ href: "/users", label: "Users" }, { href: "/activity-logs", label: "Activity Logs" });
-  }
-  return links;
 }
-
-const ROLE_LABELS: Record<PublicUser["role"], string> = {
-  ADMIN: "Admin",
-  ORDERER: "Orderer",
-  ORDER_ACCEPTER: "Order Accepter",
-};
 
 export default function NavBar({ user }: { user: PublicUser }) {
   const pathname = usePathname();
   const router = useRouter();
-
   const links = linksFor(user.role);
 
   async function handleLogout() {
@@ -38,7 +53,7 @@ export default function NavBar({ user }: { user: PublicUser }) {
     <div className="mb-5">
       <header className="mb-3 flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold">OMS</h1>
+          <h1 className="text-xl font-semibold">KM Sourcing</h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-black/50 dark:text-white/50">
               {user.name} · {ROLE_LABELS[user.role]}
@@ -51,7 +66,6 @@ export default function NavBar({ user }: { user: PublicUser }) {
             </button>
           </div>
         </div>
-
         <nav className="flex flex-wrap gap-1">
           {links.map((link) => (
             <Link
@@ -68,8 +82,6 @@ export default function NavBar({ user }: { user: PublicUser }) {
           ))}
         </nav>
       </header>
-
-      {user.role === "ORDERER" && <ArrivalNotificationBanner />}
     </div>
   );
 }

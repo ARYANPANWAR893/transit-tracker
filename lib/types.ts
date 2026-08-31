@@ -1,225 +1,222 @@
-export type Role = "ADMIN" | "ORDERER" | "ORDER_ACCEPTER";
+export type Role =
+  | "ADMIN"
+  | "REQUIREMENT_OWNER"
+  | "PROCUREMENT_OWNER"
+  | "SOURCING_COORDINATOR"
+  | "LOADING_COORDINATOR";
 
-export type OrderStatus =
-  | "DRAFT"
-  | "REQUESTED"
-  | "ACCEPTED"
-  | "REJECTED"
-  | "WITHDRAWN"
-  | "IN_TRANSIT"
-  | "ARRIVED"
-  | "CONFIRMED_RECEIVED";
+export const ROLE_LABELS: Record<Role, string> = {
+  ADMIN: "Admin",
+  REQUIREMENT_OWNER: "Requirement Owner",
+  PROCUREMENT_OWNER: "Procurement Owner",
+  SOURCING_COORDINATOR: "Sourcing Coordinator",
+  LOADING_COORDINATOR: "Loading Coordinator",
+};
 
-export type ConversionKind = "REQUEST" | "ACCEPTANCE";
+/** Only the states a human decides; progress beyond this is derived. */
+export type RequirementStatus = "REQUESTED" | "REJECTED" | "WITHDRAWN";
+
+export type FulfilmentStatus =
+  | "REJECTED" | "WITHDRAWN" | "REQUESTED" | "PROCUREMENT_CONFIRMED" | "ALLOCATED"
+  | "PARTIALLY_SHIPPED" | "FULLY_SHIPPED" | "PARTIALLY_RECEIVED" | "RECEIVED";
+
+export const FULFILMENT_LABELS: Record<FulfilmentStatus, string> = {
+  REQUESTED: "Requested",
+  PROCUREMENT_CONFIRMED: "Procured",
+  ALLOCATED: "Allocated",
+  PARTIALLY_SHIPPED: "Partially Shipped",
+  FULLY_SHIPPED: "Shipped",
+  PARTIALLY_RECEIVED: "Partially Received",
+  RECEIVED: "Received",
+  REJECTED: "Rejected",
+  WITHDRAWN: "Withdrawn",
+};
+
+export type ContainerStatus =
+  | "CREATED" | "PROCUREMENT" | "READY_FOR_LOADING" | "LOADING" | "LOADED" | "IN_TRANSIT" | "ARRIVED";
+
+export const CONTAINER_STATUS_LABELS: Record<ContainerStatus, string> = {
+  CREATED: "Created",
+  PROCUREMENT: "Procurement",
+  READY_FOR_LOADING: "Ready for Loading",
+  LOADING: "Loading",
+  LOADED: "Loaded",
+  IN_TRANSIT: "In Transit",
+  ARRIVED: "Arrived",
+};
+
+export type IdentifierType =
+  | "KMW" | "KATTYMAO_SKU" | "MA_SKU" | "CHINA_CODE" | "AMAZON_SKU" | "AMAZON_ASIN"
+  | "FLIPKART_SKU" | "FLIPKART_ASIN" | "MEESHO_SKU" | "MEESHO_PRODUCT_ID";
+
+export const IDENTIFIER_LABELS: Record<IdentifierType, string> = {
+  KMW: "KMW ID",
+  KATTYMAO_SKU: "KattyMao SKU",
+  MA_SKU: "MA SKU",
+  CHINA_CODE: "China Code",
+  AMAZON_SKU: "Amazon SKU",
+  AMAZON_ASIN: "Amazon ASIN",
+  FLIPKART_SKU: "Flipkart SKU",
+  FLIPKART_ASIN: "Flipkart ASIN",
+  MEESHO_SKU: "Meesho SKU",
+  MEESHO_PRODUCT_ID: "Meesho Product ID",
+};
+
 export type ContainerUploadStatus = "PROCESSING" | "COMPLETED" | "FAILED";
 export type ContainerItemMatchStatus = "MATCHED" | "AMBIGUOUS" | "UNMATCHED" | "ERROR";
-export type PhotoSource = "ORDERER_UPLOAD" | "CONTAINER_IMPORT";
+export type PhotoSource = "REQUIREMENT_UPLOAD" | "CONTAINER_IMPORT";
 
 export type PublicUser = {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  isActive: boolean;
-  createdAt: string;
+  id: string; name: string; email: string; role: Role; isActive: boolean; createdAt: string;
 };
 
-export type ProductFamily = {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
+export type PersonRef = { id: string; name: string };
+
+export type ProductFamily = { id: string; name: string; createdAt: string; updatedAt: string };
+
+export type ProductIdentifier = {
+  id: string; type: IdentifierType; value: string; normalizedValue: string;
 };
 
-/** All six identifiers are optional individually; at least one is required overall (enforced server-side). */
 export type Product = {
   id: string;
   name: string;
-  amazonSku: string | null;
-  amazonAsin: string | null;
-  flipkartSku: string | null;
-  flipkartAsin: string | null;
-  meeshoSku: string | null;
-  meeshoProductId: string | null;
-  maSku: string | null;
-  kmwId: string | null;
   familyId: string | null;
   family: ProductFamily | null;
+  identifiers: ProductIdentifier[];
   createdAt: string;
   updatedAt: string;
 };
 
-/** A product identification draft the Orderer can create inline while placing an order. */
+/** A product a requirement can be raised against, created inline if new. */
 export type ProductDraft = {
   name: string;
-  amazonSku: string | null;
-  amazonAsin: string | null;
-  flipkartSku: string | null;
-  flipkartAsin: string | null;
-  meeshoSku: string | null;
-  meeshoProductId: string | null;
-  maSku: string | null;
-  kmwId: string | null;
   familyId: string | null;
+  identifiers: { type: IdentifierType; value: string }[];
 };
 
 export type ProductSelection = { kind: "existing"; product: Product } | { kind: "new"; draft: ProductDraft };
 
-export type PersonRef = { id: string; name: string };
+export type QuantityBreakdown = {
+  required: number; procured: number; allocated: number;
+  inTransit: number; received: number; outstanding: number;
+};
 
 export type Remark = {
-  id: string;
-  orderId: string;
-  body: string;
-  authorId: string;
-  author: PersonRef;
-  createdAt: string;
-  updatedAt: string;
+  id: string; requirementId: string; body: string;
+  authorId: string; author: PersonRef; createdAt: string; updatedAt: string;
 };
 
 export type Photo = {
-  id: string;
-  orderId: string;
-  url: string;
-  source: PhotoSource;
-  uploadedById: string;
-  uploadedBy: PersonRef;
-  createdAt: string;
+  id: string; requirementId: string; url: string; source: PhotoSource;
+  uploadedById: string; uploadedBy: PersonRef; createdAt: string;
 };
 
-export type CurrencyConversion = {
-  id: string;
-  orderId: string;
-  kind: ConversionKind;
-  originalAmount: number;
-  originalCurrency: string;
-  convertedAmount: number;
-  convertedCurrency: string;
-  rate: number;
-  rateTimestamp: string;
-  createdAt: string;
+export type ContainerRef = {
+  id: string; code: string; status: ContainerStatus;
+  loadingDate: string | null; expectedArrivalDate: string | null;
+};
+
+export type Allocation = {
+  id: string; qty: number; containerId: string; container: ContainerRef;
+  allocatedBy: PersonRef; allocatedAt: string; receivedQty: number;
+};
+
+export type Procurement = {
+  id: string; qty: number; confirmedBy: PersonRef; confirmedAt: string; notes: string | null;
 };
 
 export type ContainerItem = {
-  id: string;
-  containerUploadId: string;
-  rowNumber: number;
-  shippingMark: string | null;
-  itemNo: string | null;
-  description: string | null;
-  sectionLabel: string | null;
-  cartons: number | null;
-  qtyPerCarton: number | null;
-  totalQty: number | null;
-  cbm: number | null;
-  totalCbm: number | null;
-  weight: number | null;
-  totalWeight: number | null;
+  id: string; containerId: string; containerUploadId: string | null;
+  rowNumber: number; shippingMark: string | null; itemNo: string | null;
+  description: string | null; sectionLabel: string | null;
+  cartons: number | null; qtyPerCarton: number | null; totalQty: number | null;
+  cbm: number | null; totalCbm: number | null; weight: number | null; totalWeight: number | null;
   imageUrl: string | null;
-  matchStatus: ContainerItemMatchStatus;
-  matchNote: string | null;
-  matchedOrderId: string | null;
-  reviewedById: string | null;
-  reviewedBy: PersonRef | null;
-  reviewedAt: string | null;
+  matchStatus: ContainerItemMatchStatus; matchNote: string | null;
+  resolvedProductId: string | null;
+  resolvedProduct: { id: string; name: string } | null;
+  reviewedBy: PersonRef | null; reviewedAt: string | null;
   createdAt: string;
-  /** Populated only for AMBIGUOUS rows: orders the Accepter can pick from. */
-  candidateOrders?: { id: string; productName: string; qty: number; createdByName: string }[];
+  /** Populated only for AMBIGUOUS rows: the products a human can pick from. */
+  candidateProducts?: { id: string; name: string; matchedOn: string }[];
 };
 
 export type ContainerUpload = {
-  id: string;
-  containerName: string;
-  fileName: string;
-  blobUrl: string;
+  id: string; containerId: string; fileName: string; blobUrl: string;
   status: ContainerUploadStatus;
-  totalRows: number;
-  matchedCount: number;
-  ambiguousCount: number;
-  unmatchedCount: number;
-  errorCount: number;
-  uploadedById: string;
-  uploadedBy: PersonRef;
-  errorMessage: string | null;
-  createdAt: string;
+  totalRows: number; matchedCount: number; ambiguousCount: number;
+  unmatchedCount: number; errorCount: number;
+  uploadedBy: PersonRef; errorMessage: string | null; createdAt: string;
 };
 
-export type ContainerUploadDetail = ContainerUpload & { items: ContainerItem[] };
-
-export type ActivityLog = {
-  id: string;
-  actorId: string | null;
-  actor: PersonRef | null;
-  actorRole: Role | null;
-  action: string;
-  entityType: string;
-  entityId: string | null;
-  previousValue: unknown;
-  newValue: unknown;
-  remarks: string | null;
+export type Container = ContainerRef & {
+  notes: string | null;
+  createdBy: PersonRef;
   createdAt: string;
+  updatedAt: string;
+  allocationCount: number;
+  totalAllocatedQty: number;
+  exceptionCount: number;
 };
 
-/** Full order detail, including relations — used by the order detail drawer. */
-export type OrderDetail = {
+export type ContainerProductLine = {
+  productId: string; productName: string;
+  required: number; inContainer: number; remaining: number;
+};
+
+export type ContainerDetail = Container & {
+  products: ContainerProductLine[];
+  items: ContainerItem[];
+  uploads: ContainerUpload[];
+};
+
+export type RequirementListItem = {
   id: string;
-  status: OrderStatus;
+  status: RequirementStatus;
+  fulfilmentStatus: FulfilmentStatus;
   productId: string;
   product: Product;
-
-  qty: number;
-  requestedPriceInr: number | null;
-  requestedPriceCny: number | null;
+  quantities: QuantityBreakdown;
   requestedDate: string;
   neededByDate: string;
-
   createdById: string;
   createdBy: PersonRef;
+  containers: ContainerRef[];
+  remarkCount: number;
+  photoCount: number;
+};
 
-  acceptedQty: number | null;
-  acceptedPriceCny: number | null;
-  acceptedPriceInr: number | null;
-  acceptedExpectedArrivalDate: string | null;
-  acceptanceDate: string | null;
-  acceptedById: string | null;
-  acceptedBy: PersonRef | null;
-
-  rejectionReason: string | null;
-  rejectedAt: string | null;
-  rejectedById: string | null;
-  rejectedBy: PersonRef | null;
-
-  withdrawnAt: string | null;
-  withdrawnById: string | null;
-  withdrawnBy: PersonRef | null;
-
-  arrivedAt: string | null;
-  arrivedById: string | null;
-  arrivedBy: PersonRef | null;
-
-  confirmedReceivedAt: string | null;
-  confirmedById: string | null;
-  confirmedBy: PersonRef | null;
-
+export type RequirementDetail = Omit<RequirementListItem, "remarkCount" | "photoCount"> & {
+  rejectionReason: string | null; rejectedAt: string | null; rejectedBy: PersonRef | null;
+  withdrawnAt: string | null; withdrawnBy: PersonRef | null;
+  procurements: Procurement[];
+  allocations: Allocation[];
   remarks: Remark[];
   photos: Photo[];
-  conversions: CurrencyConversion[];
-  containerItems: ContainerItem[];
-
   createdAt: string;
   updatedAt: string;
 };
 
-/** Lighter shape returned by the list endpoint. */
-export type OrderListItem = Omit<OrderDetail, "remarks" | "photos" | "conversions" | "containerItems"> & {
-  remarkCount: number;
-  photoCount: number;
-  containerName: string | null;
+export type RequirementListResponse = {
+  items: RequirementListItem[]; total: number; page: number; pageSize: number;
 };
 
-export type OrderListResponse = {
-  items: OrderListItem[];
-  total: number;
-  page: number;
-  pageSize: number;
+/** One product's position across every container carrying it. */
+export type ProductContainerLine = {
+  containerId: string; code: string; qty: number; receivedQty: number;
+  loadingDate: string | null; expectedArrivalDate: string | null; status: ContainerStatus;
+};
+
+export type ProductDetail = {
+  product: Product;
+  quantities: QuantityBreakdown;
+  containers: ProductContainerLine[];
+  requirements: RequirementListItem[];
+};
+
+export type ActivityLog = {
+  id: string; actorId: string | null; actor: PersonRef | null; actorRole: Role | null;
+  action: string; entityType: string; entityId: string | null;
+  previousValue: unknown; newValue: unknown; remarks: string | null; createdAt: string;
 };

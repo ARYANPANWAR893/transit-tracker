@@ -2,95 +2,110 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { canManageCatalog } from "@/lib/permissions";
+import { serializeProduct, serializeRequirementListItem, PRODUCT_INCLUDE, REQUIREMENT_LIST_INCLUDE } from "@/lib/requirementSerializer";
+import { aggregate } from "@/lib/quantities";
+import { toIdentifierRows } from "@/lib/identifiers";
 import { logActivity } from "@/lib/activityLog";
+import type { ProductContainerLine, ProductDetail } from "@/lib/types";
 
-const IDENTIFIER_FIELDS = [
-  "amazonSku",
-  "amazonAsin",
-  "flipkartSku",
-  "flipkartAsin",
-  "meeshoSku",
-  "meeshoProductId",
-  "maSku",
-  "kmwId",
-] as const;
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+/** "Where is this product?" — quantities plus every container carrying it. */
+export async function GET(_r: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
-  if (!canManageCatalog(user)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const existing = await prisma.product.findUnique({ where: { id } });
+  const product = await prisma.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
+  if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
+
+  const requirements = await prisma.requirement.findMany({
+    where: {
+      productId: id,
+      ...(user.role === "REQUIREMENT_OWNER" ? { createdById: user.id } : {}),
+    },
+    include: REQUIREMENT_LIST_INCLUDE,
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Roll every allocation of this product up by container.
+  const byContainer = new Map<string, ProductContainerLine>();
+  for (const r of requirements) {
+    if (r.status !== "REQUESTED") continue;
+    for (const a of r.allocations) {
+      const line = byContainer.get(a.containerId) ?? {
+        containerId: a.containerId,
+        code: a.container.code,
+        qty: 0,
+        receivedQty: 0,
+        loadingDate: a.container.loadingDate?.toISOString() ?? null,
+        expectedArrivalDate: a.container.expectedArrivalDate?.toISOString() ?? null,
+        status: a.container.status,
+      };
+      line.qty += a.qty;
+      line.receivedQty += a.receipts.reduce((s, x) => s + x.qty, 0);
+      byContainer.set(a.containerId, line);
+    }
+  }
+
+  const detail: ProductDetail = {
+    product: serializeProduct(product),
+    quantities: aggregate(requirements),
+    containers: [...byContainer.values()].sort((a, b) =>
+      (a.loadingDate ?? "").localeCompare(b.loadingDate ?? "") || a.code.localeCompare(b.code)
+    ),
+    requirements: requirements.map(serializeRequirementListItem),
+  };
+  return NextResponse.json(detail);
+}
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getCurrentUser();
+  if (!canManageCatalog(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { id } = await params;
+  const existing = await prisma.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
   if (!existing) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
   const body = await request.json();
   const data: Record<string, unknown> = {};
-
   if ("name" in body) {
     if (typeof body.name !== "string" || !body.name.trim()) {
-      return NextResponse.json({ error: "Invalid name" }, { status: 400 });
+      return NextResponse.json({ error: "Enter a product name" }, { status: 400 });
     }
     data.name = body.name.trim();
   }
-
-  for (const field of IDENTIFIER_FIELDS) {
-    if (field in body) {
-      data[field] = typeof body[field] === "string" && body[field].trim() ? body[field].trim() : null;
-    }
-  }
-
   if ("familyId" in body) {
     data.familyId = typeof body.familyId === "string" && body.familyId ? body.familyId : null;
   }
 
-  // Guard against ending up with zero identifiers (name alone can't identify a product).
-  const resultingIdentifiers = IDENTIFIER_FIELDS.map((f) =>
-    f in data ? data[f] : existing[f as keyof typeof existing]
-  );
-  if (!resultingIdentifiers.some(Boolean)) {
-    return NextResponse.json({ error: "At least one product identifier is required" }, { status: 400 });
+  // Identifiers are replaced wholesale when supplied.
+  if ("identifiers" in body) {
+    const rows = toIdentifierRows(body.identifiers);
+    if (rows.length === 0) {
+      return NextResponse.json({ error: "A product needs at least one identifier" }, { status: 400 });
+    }
+    await prisma.productIdentifier.deleteMany({ where: { productId: id } });
+    await prisma.productIdentifier.createMany({ data: rows.map((r) => ({ ...r, productId: id })) });
   }
 
-  try {
-    const product = await prisma.product.update({ where: { id }, data, include: { family: true } });
+  const product = await prisma.product.update({ where: { id }, data, include: PRODUCT_INCLUDE });
+  await logActivity({
+    actor: user, action: "PRODUCT_EDITED", entityType: "Product", entityId: id,
+    previousValue: { name: existing.name, identifiers: existing.identifiers.map((i) => `${i.type}:${i.value}`) },
+    newValue: { name: product.name, identifiers: product.identifiers.map((i) => `${i.type}:${i.value}`) },
+  });
 
-    await logActivity({
-      actor: user,
-      action: "PRODUCT_EDITED",
-      entityType: "Product",
-      entityId: id,
-      previousValue: Object.fromEntries(Object.keys(data).map((k) => [k, existing[k as keyof typeof existing]])),
-      newValue: data,
-    });
-
-    return NextResponse.json(product);
-  } catch {
-    return NextResponse.json(
-      { error: "Product not found, or an identifier is already in use" },
-      { status: 409 }
-    );
-  }
+  return NextResponse.json(serializeProduct(product));
 }
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_r: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
-  if (!canManageCatalog(user)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  if (!canManageCatalog(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
-  const orderCount = await prisma.order.count({ where: { productId: id } });
-  if (orderCount > 0) {
+  const count = await prisma.requirement.count({ where: { productId: id } });
+  if (count > 0) {
     return NextResponse.json(
-      { error: `${orderCount} order(s) reference this product; it can't be deleted` },
+      { error: `${count} requirement(s) reference this product, so it can't be deleted` },
       { status: 409 }
     );
   }
